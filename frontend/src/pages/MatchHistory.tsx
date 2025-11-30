@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Clock, Users, ChevronRight, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import DebateViewer from '../components/DebateViewer'
+import { getApiUrl } from '../config'
 
 interface Match {
   match_id: string
@@ -39,11 +40,7 @@ export default function MatchHistory() {
 
   const fetchHistory = async () => {
     try {
-      const isDev = window.location.hostname === 'localhost'
-      const apiUrl = isDev
-        ? 'http://localhost:8000/api/tournament/matches/history'
-        : '/api/tournament/matches/history'
-      
+      const apiUrl = getApiUrl('/api/tournament/matches/history')
       const response = await fetch(apiUrl)
       const data = await response.json()
       setMatches(data)
@@ -57,11 +54,7 @@ export default function MatchHistory() {
   const fetchMatchDetail = async (matchId: string) => {
     setLoadingDetail(true)
     try {
-      const isDev = window.location.hostname === 'localhost'
-      const apiUrl = isDev
-        ? `http://localhost:8000/api/tournament/match/${matchId}`
-        : `/api/tournament/match/${matchId}`
-      
+      const apiUrl = getApiUrl(`/api/tournament/match/${matchId}`)
       const response = await fetch(apiUrl)
       const data = await response.json()
       setSelectedMatch(data)

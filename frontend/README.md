@@ -8,12 +8,15 @@
 frontend/
 ├── index.html              # HTML 入口
 ├── favicon.svg             # 网站图标
+├── .env.example            # 环境变量模板
+├── .env                    # 环境变量（本地，不提交）
 ├── package.json            # 项目配置和依赖
 ├── tsconfig.json           # TypeScript 配置
 ├── vite.config.ts          # Vite 构建配置
 ├── tailwind.config.js      # Tailwind CSS 配置
 ├── postcss.config.js       # PostCSS 配置
 └── src/
+    ├── config.ts           # 环境变量配置
     ├── main.tsx            # 应用入口
     ├── App.tsx             # 根组件（路由配置）
     ├── index.css           # 全局样式
@@ -40,7 +43,29 @@ cd frontend
 npm install
 ```
 
-### 2. 启动开发服务器
+### 2. 配置环境变量
+
+创建 `.env` 文件（参考 `.env.example`）：
+
+```bash
+cp .env.example .env
+```
+
+编辑 `.env` 文件：
+
+```env
+# API Base URL - 后端 API 的基础地址
+VITE_API_BASE_URL=http://localhost:8000
+
+# 是否为开发环境
+VITE_IS_DEV=true
+```
+
+**说明**：
+- `VITE_API_BASE_URL`: 后端 API 的基础 URL（可以修改端口或主机）
+- `VITE_IS_DEV`: 开发模式下使用完整 URL，生产模式使用相对路径
+
+### 3. 启动开发服务器
 
 ```bash
 npm run dev
@@ -48,7 +73,7 @@ npm run dev
 
 应用将在 `http://localhost:5173` 启动（默认端口）。
 
-### 3. 构建生产版本
+### 4. 构建生产版本
 
 ```bash
 npm run build
@@ -56,7 +81,7 @@ npm run build
 
 构建产物将输出到 `dist/` 目录。
 
-### 4. 预览生产构建
+### 5. 预览生产构建
 
 ```bash
 npm run preview
@@ -180,12 +205,35 @@ ELO 评分排名系统：
 
 ## 🔧 开发指南
 
+### 环境配置
+
+项目使用 `.env` 文件管理环境变量，支持灵活配置后端 API 地址。配置文件 `src/config.ts` 提供了统一的 API 调用方法：
+
+```typescript
+// src/config.ts
+import { getApiUrl, getStreamUrl } from './config'
+
+// 普通 API 调用
+const response = await fetch(getApiUrl('/api/tournament/leaderboard'))
+
+// SSE Stream 调用
+const streamUrl = getStreamUrl('/api/tournament/match/stream')
+```
+
+**配置说明**：
+- 开发环境：`VITE_IS_DEV=true`，使用完整 URL（如 `http://localhost:8000/api/...`）
+- 生产环境：`VITE_IS_DEV=false`，使用相对路径（如 `/api/...`），需配合 Nginx 反向代理
+
+**修改后端地址**：
+如果后端端口或主机改变，只需修改 `.env` 中的 `VITE_API_BASE_URL`，无需改动代码。
+
 ### SSE 通信 (`useSSE.ts`)
 
 使用 Server-Sent Events 实现实时通信：
 
 ```tsx
 import { useSSE } from '../hooks/useSSE'
+import { getStreamUrl } from '../config'
 
 const { messages, isConnected, currentMatchId, connect, clearMessages } = useSSE()
 
@@ -198,11 +246,7 @@ const startMatch = async () => {
     rounds: 3,
   }
   
-  const isDev = window.location.hostname === 'localhost'
-  const url = isDev 
-    ? 'http://localhost:8000/api/debate/start_stream'
-    : '/api/debate/start_stream'
-    
+  const url = getStreamUrl('/api/tournament/match/stream')
   connect(url, config)
 }
 ```
@@ -225,16 +269,24 @@ toast.info('提示信息')
 
 ### API 调用模式
 
-根据环境自动切换 API 地址：
+**推荐方式**：使用 `config.ts` 提供的工具函数
 
 ```tsx
+import { getApiUrl } from '../config'
+
+// 普通 API 调用
+const response = await fetch(getApiUrl('/api/tournament/leaderboard'))
+const data = await response.json()
+```
+
+**旧方式**（不推荐）：
+
+```tsx
+// ❌ 不推荐：硬编码判断环境
 const isDev = window.location.hostname === 'localhost'
 const apiUrl = isDev
   ? 'http://localhost:8000/api/endpoint'
   : '/api/endpoint'
-
-const response = await fetch(apiUrl)
-const data = await response.json()
 ```
 
 ### 组件开发规范
@@ -395,31 +447,48 @@ import { motion, AnimatePresence } from 'framer-motion'
 
 ### 环境变量
 
-Vite 环境变量配置：
+**Vite 环境变量配置**：
+
+创建 `.env` 文件：
 
 ```bash
 # .env
-VITE_API_URL=http://localhost:8000
+VITE_API_BASE_URL=http://localhost:8000
+VITE_IS_DEV=true
 ```
 
-在代码中使用：
+在代码中使用（通过 `config.ts`）：
 
 ```tsx
-const API_URL = import.meta.env.VITE_API_URL
+import { getApiUrl, API_BASE_URL, IS_DEV } from './config'
+
+// 使用工具函数（推荐）
+const url = getApiUrl('/api/endpoint')
+
+// 直接访问环境变量
+console.log('API Base URL:', API_BASE_URL)
+console.log('Is Dev:', IS_DEV)
 ```
 
 ## 🧪 调试
 
 ### 开发模式
 
-开发模式自动判断环境：
+环境判断通过 `.env` 配置：
 
 ```tsx
-const isDev = window.location.hostname === 'localhost'
+import { IS_DEV, getApiUrl } from './config'
+
+if (IS_DEV) {
+  console.log('开发模式')
+}
+
+// 自动根据环境选择正确的 URL
+const url = getApiUrl('/api/endpoint')
 ```
 
-- **本地开发**：使用 `http://localhost:8000`
-- **生产环境**：使用相对路径 `/api`
+- **本地开发**：`VITE_IS_DEV=true`，使用完整 URL（如 `http://localhost:8000/api/...`）
+- **生产环境**：`VITE_IS_DEV=false`，使用相对路径（如 `/api/...`）
 
 ### 日志输出
 

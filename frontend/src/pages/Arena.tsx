@@ -5,6 +5,7 @@ import { useToast } from '../hooks/useToast'
 import { ToastContainer } from '../components/Toast'
 import DebateViewer from '../components/DebateViewer'
 import { useNavigate } from 'react-router-dom'
+import { getApiUrl, getStreamUrl } from '../config'
 
 const MODELS = [
   { value: 'gpt-4o', label: 'GPT-4o' },
@@ -97,18 +98,13 @@ export default function ArenaNew() {
   // 加载历史记录
   const fetchHistory = async () => {
     try {
-      const isDev = window.location.hostname === 'localhost'
-      
       // 如果用户已登录，添加 user_id 参数
       const params = new URLSearchParams({ limit: '20' })
       if (user?.id) {
         params.append('user_id', user.id.toString())
       }
       
-      const apiUrl = isDev
-        ? `http://localhost:8000/api/tournament/matches/history?${params}`
-        : `/api/tournament/matches/history?${params}`
-      
+      const apiUrl = getApiUrl(`/api/tournament/matches/history?${params}`)
       const response = await fetch(apiUrl)
       const data = await response.json()
       setHistoryMatches(data)
@@ -175,9 +171,7 @@ export default function ArenaNew() {
     setLoginLoading(true)
     
     try {
-      const isDev = window.location.hostname === 'localhost'
-      const apiUrl = isDev ? 'http://localhost:8000/api/auth/login' : '/api/auth/login'
-      
+      const apiUrl = getApiUrl('/api/auth/login')
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -245,11 +239,7 @@ export default function ArenaNew() {
       user_id: user?.id || null,
     }
 
-    const isDev = window.location.hostname === 'localhost'
-    const apiUrl = isDev
-      ? 'http://localhost:8000/api/tournament/match/stream'
-      : '/api/tournament/match/stream'
-
+    const apiUrl = getStreamUrl('/api/tournament/match/stream')
     connect(apiUrl, config)
     
     // 🔧 立即刷新历史记录（新比赛会在后端立即创建 FIGHTING 状态的记录）
@@ -270,11 +260,7 @@ export default function ArenaNew() {
   // 🔧 简化：加载历史记录的比赛（直接切换到该比赛，断开当前 SSE）
   const loadHistoryMatch = async (matchId: string) => {
     try {
-      const isDev = window.location.hostname === 'localhost'
-      const apiUrl = isDev
-        ? `http://localhost:8000/api/tournament/match/${matchId}`
-        : `/api/tournament/match/${matchId}`
-      
+      const apiUrl = getApiUrl(`/api/tournament/match/${matchId}`)
       const response = await fetch(apiUrl)
       if (!response.ok) {
         throw new Error('加载失败')

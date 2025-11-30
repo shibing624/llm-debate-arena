@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Trophy, Home } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { getApiUrl } from '../config'
 
 interface Competitor {
   model_id: string
@@ -37,11 +38,7 @@ export default function Leaderboard() {
 
   const fetchLeaderboard = async () => {
     try {
-      const isDev = window.location.hostname === 'localhost'
-      const apiUrl = isDev
-        ? 'http://localhost:8000/api/tournament/leaderboard'
-        : '/api/tournament/leaderboard'
-      
+      const apiUrl = getApiUrl('/api/tournament/leaderboard')
       const response = await fetch(apiUrl)
       const data = await response.json()
       setCompetitors(data)
@@ -58,11 +55,7 @@ export default function Leaderboard() {
     }
 
     try {
-      const isDev = window.location.hostname === 'localhost'
-      const apiUrl = isDev
-        ? `http://localhost:8000/api/tournament/matches/history?model_id=${modelId}&limit=20`
-        : `/api/tournament/matches/history?model_id=${modelId}&limit=20`
-      
+      const apiUrl = getApiUrl(`/api/tournament/matches/history?model_id=${modelId}&limit=20`)
       const response = await fetch(apiUrl)
       const data = await response.json()
       
