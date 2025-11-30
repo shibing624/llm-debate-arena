@@ -54,7 +54,7 @@ LLM Debate Arena v5 是一个完全竞技对抗型的 AI 辩论平台，核心�
   
 LLM 调用:
   - OpenRouter API (统一接口)
-  - 支持 GPT/Claude/混元等
+  - 支持 GPT/Claude等
 
 认证:
   - JWT Token (永久有效)
