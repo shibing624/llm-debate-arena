@@ -328,7 +328,7 @@ async def execute_turn_stream(
     
     messages.append({
         "role": "user",
-        "content": f"轮到你了，这是 Round {round_num}。请发言。\n提示：如需数据支持，可使用工具。"
+        "content": f"轮到你了，这是 Round {round_num}。请发言。"
     })
     
     # 根据 enabled_tools 过滤工具
