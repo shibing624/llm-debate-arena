@@ -7,13 +7,10 @@ import DebateViewer from '../components/DebateViewer'
 import { useNavigate } from 'react-router-dom'
 import { getApiUrl, getStreamUrl } from '../config'
 
-const MODELS = [
-  { value: 'gpt-4o', label: 'GPT-4o' },
-  { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
-  { value: 'claude-3.5-sonnet', label: 'Claude 3.5 Sonnet' },
-  { value: 'gpt-5.1', label: 'GPT-5.1' },
-  { value: 'hunyuan-turbos-latest', label: '混元 Turbo' },
-]
+interface ModelOption {
+  value: string
+  label: string
+}
 
 const PERSONALITIES = [
   { value: '', label: '默认' },
@@ -48,13 +45,15 @@ interface Match {
 }
 
 export default function ArenaNew() {
+  const [models, setModels] = useState<ModelOption[]>([])
+  const [loadingModels, setLoadingModels] = useState(true)
   const [topic, setTopic] = useState('')
-  const [propModel, setPropModel] = useState('gpt-4o')
-  const [oppModel, setOppModel] = useState('claude-3.5-sonnet')
+  const [propModel, setPropModel] = useState('')
+  const [oppModel, setOppModel] = useState('')
   const [propPersonality, setPropPersonality] = useState('')
   const [oppPersonality, setOppPersonality] = useState('')
   const [rounds, setRounds] = useState(3)
-  const [judges, setJudges] = useState<string[]>(['gpt-4o', 'gpt-4o-mini'])
+  const [judges, setJudges] = useState<string[]>([])
   const [enabledTools, setEnabledTools] = useState<string[]>([])
   const [isStarting, setIsStarting] = useState(false)
   const [historyMatches, setHistoryMatches] = useState<Match[]>([])
@@ -113,6 +112,45 @@ export default function ArenaNew() {
     }
   }
 
+  // 加载模型列表
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const apiUrl = getApiUrl('/api/tournament/leaderboard')
+        const response = await fetch(apiUrl)
+        const data = await response.json()
+        
+        // 转换为下拉选项格式
+        const modelOptions: ModelOption[] = data.map((competitor: any) => ({
+          value: competitor.model_id,
+          label: competitor.display_name
+        }))
+        
+        setModels(modelOptions)
+        
+        // 设置默认选择（第一个和第二个模型）
+        if (modelOptions.length >= 2) {
+          setPropModel(modelOptions[0].value)
+          setOppModel(modelOptions[1].value)
+          // 默认选择前两个模型作为裁判
+          setJudges([modelOptions[0].value, modelOptions[1].value])
+        } else if (modelOptions.length === 1) {
+          setPropModel(modelOptions[0].value)
+          setOppModel(modelOptions[0].value)
+          setJudges([modelOptions[0].value])
+        }
+        
+        setLoadingModels(false)
+      } catch (error) {
+        console.error('获取模型列表失败:', error)
+        toast.error('获取模型列表失败')
+        setLoadingModels(false)
+      }
+    }
+    
+    fetchModels()
+  }, [])
+
   useEffect(() => {
     // 检查登录状态
     const token = localStorage.getItem('token')
@@ -124,7 +162,6 @@ export default function ArenaNew() {
     // 初始加载历史记录（不依赖 user 状态，直接读取 localStorage）
     const loadInitialHistory = async () => {
       try {
-        const isDev = window.location.hostname === 'localhost'
         const params = new URLSearchParams({ limit: '20' })
         
         // 从 localStorage 直接读取 user_id
@@ -135,10 +172,7 @@ export default function ArenaNew() {
           }
         }
         
-        const apiUrl = isDev
-          ? `http://localhost:8000/api/tournament/matches/history?${params}`
-          : `/api/tournament/matches/history?${params}`
-        
+        const apiUrl = getApiUrl(`/api/tournament/matches/history?${params}`)
         const response = await fetch(apiUrl)
         const data = await response.json()
         setHistoryMatches(data)
@@ -512,159 +546,174 @@ export default function ArenaNew() {
           <div className="max-w-[85%] mx-auto space-y-4">
             {/* 配置区 - 极简紧凑 */}
             <div className="bg-white border border-gray-200 rounded p-4">
-              {/* 模型选择 - 单行 */}
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <div>
-                  <label className="block text-xs font-medium mb-1 text-gray-600">正方</label>
-                  <select
-                    value={propModel}
-                    onChange={(e) => setPropModel(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded text-sm"
-                    disabled={isStarting}
-                  >
-                    {MODELS.map((m) => (
-                      <option key={m.value} value={m.value}>{m.label}</option>
-                    ))}
-                  </select>
+              {loadingModels ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+                  <p className="text-sm">加载模型列表中...</p>
                 </div>
+              ) : (
+                <>
+                  {/* 模型选择 - 单行 */}
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <label className="block text-xs font-medium mb-1 text-gray-600">正方</label>
+                      <select
+                        value={propModel}
+                        onChange={(e) => setPropModel(e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded text-sm"
+                        disabled={isStarting || models.length === 0}
+                      >
+                        {models.length === 0 && (
+                          <option value="">暂无可用模型</option>
+                        )}
+                        {models.map((m) => (
+                          <option key={m.value} value={m.value}>{m.label}</option>
+                        ))}
+                      </select>
+                    </div>
 
-                <div>
-                  <label className="block text-xs font-medium mb-1 text-gray-600">反方</label>
-                  <select
-                    value={oppModel}
-                    onChange={(e) => setOppModel(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded text-sm"
-                    disabled={isStarting}
-                  >
-                    {MODELS.map((m) => (
-                      <option key={m.value} value={m.value}>{m.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+                    <div>
+                      <label className="block text-xs font-medium mb-1 text-gray-600">反方</label>
+                      <select
+                        value={oppModel}
+                        onChange={(e) => setOppModel(e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded text-sm"
+                        disabled={isStarting || models.length === 0}
+                      >
+                        {models.length === 0 && (
+                          <option value="">暂无可用模型</option>
+                        )}
+                        {models.map((m) => (
+                          <option key={m.value} value={m.value}>{m.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
 
-              {/* 性格选择 - 可选 */}
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <select
-                  value={propPersonality}
-                  onChange={(e) => setPropPersonality(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded text-xs"
-                  disabled={isStarting}
-                >
-                  {PERSONALITIES.map((p) => (
-                    <option key={p.value} value={p.value}>{p.label}</option>
-                  ))}
-                </select>
-
-                <select
-                  value={oppPersonality}
-                  onChange={(e) => setOppPersonality(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded text-xs"
-                  disabled={isStarting}
-                >
-                  {PERSONALITIES.map((p) => (
-                    <option key={p.value} value={p.value}>{p.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* 高级设置 - 单行 */}
-              <div className="flex items-center space-x-3 mb-3 text-xs">
-                <div className="flex items-center space-x-2">
-                  <span className="text-gray-600">轮数</span>
-                  <select
-                    value={rounds}
-                    onChange={(e) => setRounds(Number(e.target.value))}
-                    className="p-1 border border-gray-300 rounded"
-                    disabled={isStarting}
-                  >
-                    <option value={1}>1</option>
-                    <option value={2}>2</option>
-                    <option value={3}>3</option>
-                    <option value={5}>5</option>
-                  </select>
-                </div>
-
-                <div className="border-l border-gray-200 pl-3 flex items-center space-x-2">
-                  <span className="text-gray-600">裁判</span>
-                  {MODELS.slice(0, 5).map((model) => (
-                    <button
-                      key={model.value}
-                      onClick={() => toggleJudge(model.value)}
-                      disabled={isStarting}
-                      className={`px-2 py-1 rounded text-xs transition ${
-                        judges.includes(model.value)
-                          ? 'bg-gray-900 text-white'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
+                  {/* 性格选择 - 可选 */}
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <select
+                      value={propPersonality}
+                      onChange={(e) => setPropPersonality(e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded text-xs"
+                      disabled={isStarting || models.length === 0}
                     >
-                      {model.label}
-                    </button>
-                  ))}
-                </div>
+                      {PERSONALITIES.map((p) => (
+                        <option key={p.value} value={p.value}>{p.label}</option>
+                      ))}
+                    </select>
 
-                <div className="border-l border-gray-200 pl-3 flex items-center space-x-2">
-                  <span className="text-gray-600">工具</span>
-                  {AVAILABLE_TOOLS.map((tool) => (
-                    <button
-                      key={tool.value}
-                      onClick={() => toggleTool(tool.value)}
-                      disabled={isStarting}
-                      className={`px-2 py-1 rounded text-xs transition ${
-                        enabledTools.includes(tool.value)
-                          ? 'bg-gray-900 text-white'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
+                    <select
+                      value={oppPersonality}
+                      onChange={(e) => setOppPersonality(e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded text-xs"
+                      disabled={isStarting || models.length === 0}
                     >
-                      {tool.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                      {PERSONALITIES.map((p) => (
+                        <option key={p.value} value={p.value}>{p.label}</option>
+                      ))}
+                    </select>
+                  </div>
 
-              {/* 辩题输入 - 多行 */}
-              <div className="mb-3">
-                <textarea
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                  placeholder="输入辩题..."
-                  rows={3}
-                  className="w-full p-2 border border-gray-300 rounded text-sm resize-none"
-                  disabled={isStarting}
-                />
-                {/* 辩题示例 */}
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {TOPIC_EXAMPLES.map((example, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setTopic(example)}
-                      disabled={isStarting}
-                      className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition disabled:opacity-50"
-                    >
-                      {example}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                  {/* 高级设置 - 单行 */}
+                  <div className="flex items-center space-x-3 mb-3 text-xs">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-gray-600">轮数</span>
+                      <select
+                        value={rounds}
+                        onChange={(e) => setRounds(Number(e.target.value))}
+                        className="p-1 border border-gray-300 rounded"
+                        disabled={isStarting || models.length === 0}
+                      >
+                        <option value={1}>1</option>
+                        <option value={2}>2</option>
+                        <option value={3}>3</option>
+                        <option value={5}>5</option>
+                      </select>
+                    </div>
 
-              {/* 开始按钮 - 紧挨辩题 */}
-              <button
-                onClick={startMatch}
-                className="w-full bg-gray-900 text-white text-sm font-medium py-2.5 rounded hover:bg-gray-800 transition flex items-center justify-center space-x-2 disabled:bg-gray-300"
-                disabled={!topic.trim() || isStarting}
-              >
-                {isStarting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>比赛进行中...</span>
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-4 h-4" />
-                    <span>开始对决</span>
-                  </>
-                )}
-              </button>
+                    <div className="border-l border-gray-200 pl-3 flex items-center space-x-2">
+                      <span className="text-gray-600">裁判</span>
+                      {models.slice(0, 5).map((model) => (
+                        <button
+                          key={model.value}
+                          onClick={() => toggleJudge(model.value)}
+                          disabled={isStarting || models.length === 0}
+                          className={`px-2 py-1 rounded text-xs transition ${
+                            judges.includes(model.value)
+                              ? 'bg-gray-900 text-white'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                        >
+                          {model.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="border-l border-gray-200 pl-3 flex items-center space-x-2">
+                      <span className="text-gray-600">工具</span>
+                      {AVAILABLE_TOOLS.map((tool) => (
+                        <button
+                          key={tool.value}
+                          onClick={() => toggleTool(tool.value)}
+                          disabled={isStarting || models.length === 0}
+                          className={`px-2 py-1 rounded text-xs transition ${
+                            enabledTools.includes(tool.value)
+                              ? 'bg-gray-900 text-white'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                        >
+                          {tool.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 辩题输入 - 多行 */}
+                  <div className="mb-3">
+                    <textarea
+                      value={topic}
+                      onChange={(e) => setTopic(e.target.value)}
+                      placeholder="输入辩题..."
+                      rows={3}
+                      className="w-full p-2 border border-gray-300 rounded text-sm resize-none"
+                      disabled={isStarting || models.length === 0}
+                    />
+                    {/* 辩题示例 */}
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {TOPIC_EXAMPLES.map((example, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setTopic(example)}
+                          disabled={isStarting || models.length === 0}
+                          className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition disabled:opacity-50"
+                        >
+                          {example}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 开始按钮 - 紧挨辩题 */}
+                  <button
+                    onClick={startMatch}
+                    className="w-full bg-gray-900 text-white text-sm font-medium py-2.5 rounded hover:bg-gray-800 transition flex items-center justify-center space-x-2 disabled:bg-gray-300"
+                    disabled={!topic.trim() || isStarting || models.length === 0}
+                  >
+                    {isStarting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>比赛进行中...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-4 h-4" />
+                        <span>开始对决</span>
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
             </div>
 
             {/* 辩论展示区 */}
