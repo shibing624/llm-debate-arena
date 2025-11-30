@@ -302,13 +302,14 @@ async def execute_turn_stream(
     
     logger.info(f"💬 {role} Round {round_num} 开始思考 (模型: {model_id}, 性格: {personality})")
     
-    # 构建系统提示词
+    # 构建系统提示词，传递 enabled_tools
     system_prompt = build_debate_prompt(
         role=role,
         personality=personality,
         topic=topic,
         topic_difficulty=topic_difficulty,
-        is_opening=is_opening
+        is_opening=is_opening,
+        enabled_tools=enabled_tools or []
     )
     
     # 构建历史上下文
@@ -514,7 +515,8 @@ def build_debate_prompt(
     personality: PersonalityType,
     topic: str,
     topic_difficulty: DifficultyLevel,
-    is_opening: bool
+    is_opening: bool,
+    enabled_tools: List[str] = None
 ) -> str:
     """构建辩论提示词"""
     
@@ -550,6 +552,28 @@ def build_debate_prompt(
     else:
         strategy = "请猛烈抨击正方的观点。寻找事实错误、逻辑漏洞或反例。提出更有说服力的替代观点。"
     
+    # 工具说明（根据实际启用的工具动态生成）
+    tools_section = ""
+    if enabled_tools:
+        tool_descriptions = {
+            'python_interpreter': '- `python_interpreter`: 运行代码证明你的观点',
+            'web_search': '- `web_search`: 搜索权威资料',
+            'calculator': '- `calculator`: 精确计算'
+        }
+        
+        tool_list = '\n'.join([tool_descriptions[tool] for tool in enabled_tools if tool in tool_descriptions])
+        
+        tools_section = f"""
+【工具使用】
+你可以调用以下工具来增强论证：
+{tool_list}
+
+**注意**：
+- 工具是辅助手段，不是评分的绝对标准
+- 如果逻辑本身足够强，不用工具也能得高分
+- 滥用工具但未切中要害，不会加分
+"""
+    
     return f"""
 你正在参加一场关于 "{topic}" 的高水平辩论赛。
 
@@ -573,18 +597,7 @@ def build_debate_prompt(
 1. 逻辑性 (Logic): 论证结构是否严密，是否有效反驳了对方
 2. 证据力 (Evidence): 是否使用了事实、数据或代码来支持观点
 3. 说服力 (Persuasion): 语言表达是否清晰、有力、切中要害
-
-【工具使用】
-你可以调用以下工具来增强论证：
-- `python_interpreter`: 运行代码证明你的观点
-- `web_search`: 搜索权威资料
-- `calculator`: 精确计算
-
-**注意**：
-- 工具是辅助手段，不是评分的绝对标准
-- 如果逻辑本身足够强，不用工具也能得高分
-- 滥用工具但未切中要害，不会加分
-
+{tools_section}
 【禁止行为】
 - 不要试图达成共识或妥协
 - 不要承认对方的核心观点

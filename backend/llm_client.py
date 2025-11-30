@@ -80,6 +80,7 @@ async def query_model_stream(
             logger.debug(f"使用工具: {[t['function']['name'] for t in tools]}")
         
         # 流式调用（使用 await 异步调用）
+        logger.debug(f"请求参数: {request_params}")
         stream = await client.chat.completions.create(**request_params)
         
         # 累积内容和工具调用
