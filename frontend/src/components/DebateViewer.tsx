@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Award, Loader2, ChevronDown } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
@@ -369,8 +370,33 @@ export default function DebateViewer({ messages, proponentModel, opponentModel }
                     color: #000;
                     text-decoration: underline;
                   }
+                  .prose table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 1em 0;
+                    font-size: 0.8125rem;
+                  }
+                  .prose table th {
+                    background-color: #f3f4f6;
+                    font-weight: 600;
+                    text-align: left;
+                    padding: 0.5rem 0.75rem;
+                    border: 1px solid #d1d5db;
+                    color: #1f2937;
+                  }
+                  .prose table td {
+                    padding: 0.5rem 0.75rem;
+                    border: 1px solid #e5e7eb;
+                    color: #374151;
+                  }
+                  .prose table tr:nth-child(even) {
+                    background-color: #f9fafb;
+                  }
+                  .prose table tr:hover {
+                    background-color: #f3f4f6;
+                  }
                 `}</style>
-                <ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {isCollapsed && canCollapse
                     ? getPreviewContent(turn.content) 
                     : turn.content}
