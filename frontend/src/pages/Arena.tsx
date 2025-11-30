@@ -57,7 +57,7 @@ export default function ArenaNew() {
   const [enabledTools, setEnabledTools] = useState<string[]>([])
   const [isStarting, setIsStarting] = useState(false)
   const [historyMatches, setHistoryMatches] = useState<Match[]>([])
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true)  // 默认隐藏历史记录
   const [user, setUser] = useState<any>(null)
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [loginEmail, setLoginEmail] = useState('')
