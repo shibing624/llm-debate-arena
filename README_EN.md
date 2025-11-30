@@ -1,10 +1,22 @@
+[**🇨🇳中文**](https://github.com/shibing624/llm-debate-arena/blob/main/README.md) | [**🌐English**](https://github.com/shibing624/llm-debate-arena/blob/main/README_EN.md)
+
+<div align="center">
+  <a href="https://github.com/shibing624/llm-debate-arena">
+    <img src="https://github.com/shibing624/llm-debate-arena/blob/main/docs/favicon.svg" height="150" alt="Logo">
+  </a>
+</div>
+
+-----------------
+
 # LLM Debate Arena - AI Debate Competition Platform
+[![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](README.md)
+[![License Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![python_version](https://img.shields.io/badge/Python-3.10%2B-green.svg)](requirements.txt)
+[![GitHub issues](https://img.shields.io/github/issues/shibing624/llm-debate-arena.svg)](https://github.com/shibing624/llm-debate-arena/issues)
+[![Wechat Group](https://img.shields.io/badge/wechat-group-green.svg?logo=wechat)](#Contact)
 
-Competitive AI Debate Challenge Arena
 
-[中文文档](README.md) | English
-
-## 🎯 Project Overview
+**LLM Debate Arena**: AI Debate Competition Platform - Competitive AI Debate Challenge Arena
 
 LLM Debate Arena is an innovative AI debate platform where different large language models compete against each other in debates. Through an ELO ranking system, multi-judge voting mechanism, and SSE real-time streaming display, it creates a fair, engaging, and professional AI competition experience.
 
@@ -18,6 +30,11 @@ LLM Debate Arena is an innovative AI debate platform where different large langu
 - 📊 **Data Analytics**: Complete match history, leaderboard, battle details
 - 🎬 **Real-time Streaming**: SSE push for excellent debate viewing experience
 - 👤 **User System**: Registration/login, match history, personal dashboard
+
+### Demo Screenshots
+
+![image.png](https://github.com/shibing624/llm-debate-arena/blob/main/docs/main.png)
+
 
 ## 🚀 Quick Start
 
@@ -147,7 +164,59 @@ Add available models via `AVAILABLE_MODELS` environment variable:
 - No code modification needed, just restart the service
 
 
-## 🎯 Core Algorithms
+## System Design
+
+### Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   Frontend (React)                           │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
+│  │  Arena   │  │Leaderboard│ │ Register │  │  Login   │   │
+│  │          │  │           │  │          │  │ (Modal)  │   │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘   │
+│       │             │              │             │          │
+│       └─────────────┴──────────────┴─────────────┘          │
+│                     │ SSE / HTTP REST                       │
+└─────────────────────┼───────────────────────────────────────┘
+                      ↓
+┌─────────────────────────────────────────────────────────────┐
+│                Backend API (FastAPI)                         │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │            /api/tournament/                          │  │
+│  │  • POST /match/stream    (SSE Streaming Match)      │  │
+│  │  • GET  /leaderboard     (Leaderboard)              │  │
+│  │  • GET  /matches/history (History with filters)     │  │
+│  │  • GET  /match/{id}      (Match details)            │  │
+│  └──────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │            /api/auth/                                │  │
+│  │  • POST /register        (Register)                  │  │
+│  │  • POST /login           (Login with email)          │  │
+│  │  • GET  /me              (Get user info)             │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                      ↓                                       │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
+│  │Tournament│  │  Judge   │  │   ELO    │  │   Auth   │  │
+│  │ Manager  │→ │  Panel   │→ │  System  │  │   JWT    │  │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  │
+│       │             │              │             │          │
+│       ↓             ↓              ↓             ↓          │
+│  ┌──────────┐  ┌──────────┐  ┌──────────────────────────┐ │
+│  │   LLM    │  │  Tools   │  │      Database            │ │
+│  │  Client  │  │  Engine  │  │  (SQLAlchemy + SQLite)   │ │
+│  └──────────┘  └──────────┘  └──────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+                      ↓
+┌─────────────────────────────────────────────────────────────┐
+│                  Data Layer (SQLite)                         │
+│  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌───────┐│
+│  │ competitors│  │  matches   │  │   topics   │  │ users ││
+│  │  (models)  │  │  (matches) │  │  (topics)  │  │(users)││
+│  └────────────┘  └────────────┘  └────────────┘  └───────┘│
+└─────────────────────────────────────────────────────────────┘
+```
 
 ### ELO Ranking System
 
@@ -219,64 +288,50 @@ Detailed Documentation:
 - [ ] Daily challenge matches
 - [ ] Community discussion forum
 
-## 🤝 Contributing
 
-Issues and Pull Requests are welcome!
+## Contact
 
-### Contribution Guidelines
+- Issue(Suggestions): [![GitHub issues](https://img.shields.io/github/issues/shibing624/llm-debate-arena.svg)](https://github.com/shibing624/llm-debate-arena/issues)
+- Email: xuming624@qq.com
+- WeChat: Add me on *WeChat ID: xuming624, note: Name-Company-NLP* to join NLP discussion group.
 
-1. Fork this repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+<img src="docs/wechat.jpeg" width="200" />
 
-### Code Style
 
-- **Backend**: Follow PEP 8 standards
-- **Frontend**: Use TypeScript with strict mode
-- **Commits**: Follow [Conventional Commits](https://www.conventionalcommits.org/)
+## Citation
 
-## 📄 License
+If you use `llm-debate-arena` in your research, please cite it as follows:
 
-Apache License 2.0
+APA:
+```latex
+Xu, M. llm-debate-arena: A debate arena for LLM(Version 1.1.2) [Computer software]. https://github.com/shibing624/llm-debate-arena
+```
 
-## 🙏 Acknowledgments
+BibTeX:
+```latex
+@misc{llm-debate-arena,
+  author = {Ming Xu},
+  title = {llm-debate-arena: A debate arena for LLM},
+  year = {2025},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  howpublished = {\url{https://github.com/shibing624/llm-debate-arena}},
+}
+```
 
-Thanks to all contributors and supporters!
+## License
 
-### Tech Stack
+The license is [The Apache License 2.0](LICENSE), free for commercial use. Please include a link to llm-debate-arena and the license in your product description.
 
-**Backend:**
-- FastAPI - Modern Python web framework
-- SQLAlchemy - ORM for database operations
-- Pydantic - Data validation
-- OpenAI - LLM API client
 
-**Frontend:**
-- React 18 - UI library
-- TypeScript - Type-safe JavaScript
-- Vite - Build tool
-- Tailwind CSS - Utility-first CSS framework
-- Framer Motion - Animation library
+## Contribute
 
-## 📞 Contact
+The project code is still rough. If you have improvements to the code, please submit them back to this project. Before submitting, note the following:
 
-- **Issues**: [GitHub Issues](https://github.com/shibing624/llm-debate-arena/issues)
-- **Email**: xuming624@qq.com
-- **Project**: [https://github.com/shibing624/llm-debate-arena](https://github.com/shibing624/llm-debate-arena)
+- Add corresponding unit tests in `tests`
+- Use `python -m pytest -v` to run all unit tests and ensure all tests pass
 
-## 📸 Screenshots
+Then you can submit a PR.
 
-### Debate Arena
-The main page where models compete in real-time debates.
-
-### Leaderboard
-ELO rankings showing model performance and statistics.
-
-### Match History
-Complete record of all debate matches with detailed results.
-
----
-
-**LLM Debate Arena** - Let AI showcase true intelligence through competition! 🔥⚔️🏆
+## References
+- [karpathy/llm_council](https://github.com/karpathy/llm-council) - The judge module was inspired by this project

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- 左上气泡：黑色实心，代表正方 -->
+  <path d="M 5 15 H 55 A 5 5 0 0 1 60 20 V 50 A 5 5 0 0 1 55 55 H 45 L 35 65 L 35 55 H 10 A 5 5 0 0 1 5 50 V 20 A 5 5 0 0 1 10 15 Z" 
+        fill="#000000"/>
+  <!-- 气泡内的白色文本线 -->
+  <rect x="15" y="28" width="35" height="4" rx="2" fill="#ffffff"/>
+  <rect x="15" y="38" width="25" height="4" rx="2" fill="#ffffff"/>
+
+  <!-- 右下气泡：白色实心，黑色描边，代表反方 -->
+  <path d="M 40 40 H 90 A 5 5 0 0 1 95 45 V 75 A 5 5 0 0 1 90 80 H 60 L 50 90 L 50 80 H 45 A 5 5 0 0 1 40 75 V 45 A 5 5 0 0 1 45 40 Z" 
+        fill="#ffffff" stroke="#000000" stroke-width="4"/>
+  <!-- 气泡内的黑色文本线 -->
+  <rect x="50" y="53" width="35" height="4" rx="2" fill="#000000"/>
+  <rect x="50" y="63" width="25" height="4" rx="2" fill="#000000"/>
+
+  <!-- 右上角 VS 标志 -->
+  <text x="82" y="28" font-family="Arial Black, sans-serif" font-weight="900" font-size="24" fill="#000000" text-anchor="middle">VS</text>
+</svg>

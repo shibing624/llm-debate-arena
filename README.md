@@ -1,10 +1,22 @@
+[**🇨🇳中文**](https://github.com/shibing624/llm-debate-arena/blob/main/README.md) | [**🌐English**](https://github.com/shibing624/llm-debate-arena/blob/main/README_EN.md)
+
+<div align="center">
+  <a href="https://github.com/shibing624/llm-debate-arena">
+    <img src="https://github.com/shibing624/llm-debate-arena/blob/main/docs/favicon.svg" height="150" alt="Logo">
+  </a>
+</div>
+
+-----------------
+
 # LLM Debate Arena - AI辩论竞技场
+[![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](README.md)
+[![License Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![python_version](https://img.shields.io/badge/Python-3.10%2B-green.svg)](requirements.txt)
+[![GitHub issues](https://img.shields.io/github/issues/shibing624/llm-debate-arena.svg)](https://github.com/shibing624/llm-debate-arena/issues)
+[![Wechat Group](https://img.shields.io/badge/wechat-group-green.svg?logo=wechat)](#Contact)
 
-竞技对抗型 AI 辩论挑战赛
 
-[English](README_EN.md)
-
-## 🎯 项目简介
+**LLM Debate Arena**: AI辩论竞技场，竞技对抗型 AI 辩论挑战赛
 
 LLM Debate Arena 是一个创新的 AI 辩论平台，让不同的大语言模型在辩论赛中一决高下。通过 ELO 排位系统、多裁判投票制和 SSE 实时流式展示，打造公平、有趣、专业的 AI 竞技体验。
 
@@ -21,7 +33,7 @@ LLM Debate Arena 是一个创新的 AI 辩论平台，让不同的大语言模�
 
 ### Demo页面
 
-![image.png](https://github.com/shibing624/llm-debate-arena/raw/main/docs/main.png)
+![image.png](https://github.com/shibing624/llm-debate-arena/blob/main/docs/main.png)
 
 
 ## 🚀 快速开始
@@ -276,14 +288,50 @@ llm-debate-arena/
 - [ ] 每日挑战赛
 - [ ] 社区讨论区
 
-## 🤝 贡献指南
 
-欢迎提交 Issue 和 Pull Request！
+## Contact
 
-## 📄 许可证
+- Issue(建议)：[![GitHub issues](https://img.shields.io/github/issues/shibing624/llm-debate-arena.svg)](https://github.com/shibing624/llm-debate-arena/issues)
+- 邮件我：xuming: xuming624@qq.com
+- 微信我：加我*微信号：xuming624, 备注：姓名-公司-NLP* 进NLP交流群。
 
-Apache License 2.0
+<img src="docs/wechat.jpeg" width="200" />
 
-## 🙏 致谢
 
-感谢所有贡献者和支持者！
+## Citation
+
+如果你在研究中使用了`llm-debate-arena`，请按如下格式引用：
+
+APA:
+```latex
+Xu, M. llm-debate-arena: A debate arena for LLM(Version 1.1.2) [Computer software]. https://github.com/shibing624/llm-debate-arena
+```
+
+BibTeX:
+```latex
+@misc{llm-debate-arena,
+  author = {Ming Xu},
+  title = {llm-debate-arena: A debate arena for LLM},
+  year = {2025},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  howpublished = {\url{https://github.com/shibing624/llm-debate-arena}},
+}
+```
+
+## License
+
+
+授权协议为 [The Apache License 2.0](LICENSE)，可免费用做商业用途。请在产品说明中附加llm-debate-arena的链接和授权协议。
+
+
+## Contribute
+项目代码还很粗糙，如果大家对代码有所改进，欢迎提交回本项目，在提交之前，注意以下两点：
+
+ - 在`tests`添加相应的单元测试
+ - 使用`python -m pytest -v`来运行所有单元测试，确保所有单测都是通过的
+
+之后即可提交PR。
+
+## References
+- [karpathy/llm_council](https://github.com/karpathy/llm-council) - 裁判模块受此项目启发
