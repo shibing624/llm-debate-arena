@@ -26,10 +26,12 @@ LLM Debate Arena 是一个创新的 AI 辩论平台，让不同的大语言模�
 - 🏆 **ELO 排位**: 动态 ELO 算法，辩题难度系数加成
 - 👨‍⚖️ **多裁判制**: 多位裁判投票，确保公平
 - 🎭 **性格注入**: 5种辩论风格（理性/激进/温和/幽默/学术）
-- 🔧 **工具增强**: Python解释器、网络搜索、计算器（可选）
+- 🔧 **工具增强**: Python解释器、网络搜索、计算器（可选，按需启用）
 - 📊 **数据沉淀**: 完整历史记录、天梯榜、对战详情
-- 🎬 **实时流式**: SSE 推送，辩论过程体验佳
-- 👤 **用户系统**: 注册登录、历史记录、个人中心
+- 🎬 **实时流式**: SSE 推送，辩论过程流畅展示
+- 👤 **用户系统**: 注册登录、JWT 认证、个人历史记录
+- 📝 **Markdown 渲染**: 支持富文本、表格、代码高亮展示
+- 🎨 **现代化 UI**: React + Tailwind CSS + Framer Motion 动画
 
 ### Demo页面
 
@@ -119,16 +121,37 @@ cd frontend
 # 安装依赖
 npm install
 
+# 配置环境变量（复制 .env.example 为 .env）
+cp .env.example .env
+# 编辑 .env 文件：
+# VITE_API_BASE_URL=http://localhost:8000  # 后端地址
+# VITE_IS_DEV=true                         # 开发模式
+
 # 启动开发服务器
 npm run dev
+
+# 构建生产版本
+npm run build
+
+# 预览生产构建
+npm run preview
 ```
 
 前端服务运行在 `http://localhost:5173`
 
+**前端技术栈：**
+- React 18.2 + TypeScript 5.2
+- Vite 5.0（快速构建工具）
+- Tailwind CSS 3.3（原子化 CSS）
+- Framer Motion 10.16（动画库）
+- React Router v6.20（路由）
+- React Markdown 9.0（Markdown 渲染，支持表格）
+- Recharts 2.10（ELO 评分曲线图表）
+
 #### 一键启动脚本
 
 ```bash
-# 使用启动脚本
+# 使用启动脚本（同时启动前后端）
 sh start.sh
 ```
 
@@ -153,6 +176,31 @@ DATABASE_URL=sqlite:///./debate_arena.db
 # Serper API (搜索工具)
 SERPER_API_KEY=your_serper_api_key_here
 ```
+
+### 前端环境变量
+
+在 `frontend/.env` 文件中配置：
+
+```env
+# API Base URL - 后端服务地址
+# - 如果设置了非默认值（非 http://localhost:8000），则始终使用此 URL
+# - 如果未设置或为默认值：
+#   - 开发环境（VITE_IS_DEV=true）：使用此 URL
+#   - 生产环境（VITE_IS_DEV=false）：使用相对路径 /api（需要 Nginx 代理）
+VITE_API_BASE_URL=http://localhost:8000
+
+# 是否为开发环境
+# true: 开发模式，直接访问 VITE_API_BASE_URL
+# false: 生产模式，使用相对路径（需要 Nginx 代理）
+VITE_IS_DEV=true
+```
+
+**前端配置说明：**
+- **开发环境**（`VITE_IS_DEV=true`）：前端直接访问后端完整 URL（如 `http://localhost:8000/api/...`）
+- **生产环境**（`VITE_IS_DEV=false`）：
+  - 如果设置了自定义 `VITE_API_BASE_URL`（非默认值），则使用完整 URL
+  - 否则使用相对路径（如 `/api/...`），需要 Nginx 反向代理
+- 修改后端地址只需修改 `.env` 文件，无需改动代码
 
 ### 模型配置
 
@@ -247,28 +295,54 @@ K因子 (动态):
 
 ```
 llm-debate-arena/
-├── backend/               # 后端服务
+├── backend/               # 后端服务 (FastAPI + SQLAlchemy)
 │   ├── main.py           # FastAPI 应用入口
-│   ├── database.py       # 数据库操作
-│   ├── models.py         # 数据模型
-│   ├── tournament.py     # 锦标赛逻辑
-│   ├── judge.py          # 裁判系统
-│   ├── elo.py            # ELO 算法
-│   ├── llm_client.py     # LLM 客户端
-│   ├── tools.py          # 工具集成
+│   ├── database.py       # 数据库操作层
+│   ├── models.py         # Pydantic 数据模型
+│   ├── tournament.py     # 锦标赛编排逻辑
+│   ├── judge.py          # 多裁判评分系统
+│   ├── elo.py            # ELO 排位算法
+│   ├── llm_client.py     # LLM 流式客户端
+│   ├── tools.py          # 工具集成 (Python/搜索/计算器)
+│   ├── auth.py           # JWT 用户认证
+│   ├── utils.py          # 工具函数
 │   └── requirements.txt  # Python 依赖
-├── frontend/              # 前端应用
+│
+├── frontend/              # 前端应用 (React 18 + TypeScript + Vite)
 │   ├── src/
+│   │   ├── main.tsx      # 应用入口
+│   │   ├── App.tsx       # 根组件 (路由配置)
+│   │   ├── config.ts     # 环境配置 (API URL 管理)
+│   │   ├── index.css     # 全局样式
 │   │   ├── pages/        # 页面组件
+│   │   │   ├── Arena.tsx          # 辩论竞技场主页
+│   │   │   ├── Leaderboard.tsx    # ELO 排行榜
+│   │   │   ├── MatchHistory.tsx   # 历史记录
+│   │   │   ├── Login.tsx          # 登录页
+│   │   │   └── Register.tsx       # 注册页
 │   │   ├── components/   # 可复用组件
+│   │   │   ├── DebateViewer.tsx   # 辩论流式展示组件
+│   │   │   └── Toast.tsx          # 消息提示组件
 │   │   └── hooks/        # 自定义 Hooks
-│   └── package.json      # Node 依赖
-├── docs/                  # 文档
+│   │       ├── useSSE.ts          # SSE 流式通信 Hook
+│   │       └── useToast.ts        # Toast 提示 Hook
+│   ├── .env              # 环境变量配置
+│   ├── .env.example      # 环境变量模板
+│   ├── package.json      # Node 依赖
+│   ├── tsconfig.json     # TypeScript 配置
+│   ├── vite.config.ts    # Vite 构建配置
+│   ├── tailwind.config.js # Tailwind CSS 配置
+│   └── postcss.config.js  # PostCSS 配置
+│
+├── docs/                  # 文档目录
+│   ├── DOCKER.md         # Docker 部署指南
+│   └── main.png          # 演示截图
 ├── tests/                 # 测试
 ├── Dockerfile             # Docker 构建文件
 ├── docker-compose.yml     # Docker Compose 配置
 ├── .env.example           # 环境变量模板
-├── start.sh               # 本地启动脚本
+├── start.sh               # 本地一键启动脚本
+├── pyproject.toml         # Python 项目配置
 └── README.md              # 项目说明
 
 详细文档：
@@ -281,6 +355,9 @@ llm-debate-arena/
 
 - [x] ~~Docker 容器化部署~~
 - [x] ~~环境变量配置模型列表~~
+- [x] ~~前端支持 Markdown 表格渲染~~
+- [x] ~~工具调用按需启用（防止幻觉）~~
+- [x] ~~历史记录默认隐藏~~
 - [ ] LLM辩论性格可定制
 - [ ] 人机对战辩论
 - [ ] 赛后复盘报告

@@ -26,10 +26,12 @@ LLM Debate Arena is an innovative AI debate platform where different large langu
 - 🏆 **ELO Ranking**: Dynamic ELO algorithm with debate difficulty multipliers
 - 👨‍⚖️ **Multi-Judge System**: Multiple judges voting to ensure fairness
 - 🎭 **Personality Injection**: 5 debate styles (Rational/Aggressive/Diplomatic/Humorous/Academic)
-- 🔧 **Tool Enhancement**: Python interpreter, web search, calculator (optional)
+- 🔧 **Tool Enhancement**: Python interpreter, web search, calculator (optional, enable as needed)
 - 📊 **Data Analytics**: Complete match history, leaderboard, battle details
-- 🎬 **Real-time Streaming**: SSE push for excellent debate viewing experience
-- 👤 **User System**: Registration/login, match history, personal dashboard
+- 🎬 **Real-time Streaming**: SSE push for smooth debate viewing experience
+- 👤 **User System**: Registration/login, JWT authentication, personal match history
+- 📝 **Markdown Rendering**: Rich text, tables, code highlighting support
+- 🎨 **Modern UI**: React + Tailwind CSS + Framer Motion animations
 
 ### Demo Screenshots
 
@@ -119,16 +121,37 @@ cd frontend
 # Install dependencies
 npm install
 
+# Configure environment variables (copy .env.example to .env)
+cp .env.example .env
+# Edit .env file:
+# VITE_API_BASE_URL=http://localhost:8000  # Backend address
+# VITE_IS_DEV=true                         # Development mode
+
 # Start development server
 npm run dev
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
 ```
 
 Frontend service runs at `http://localhost:5173`
 
+**Frontend Tech Stack:**
+- React 18.2 + TypeScript 5.2
+- Vite 5.0 (Fast build tool)
+- Tailwind CSS 3.3 (Utility-first CSS)
+- Framer Motion 10.16 (Animation library)
+- React Router v6.20 (Routing)
+- React Markdown 9.0 (Markdown rendering with table support)
+- Recharts 2.10 (ELO rating charts)
+
 #### One-Click Startup Script
 
 ```bash
-# Use startup script
+# Use startup script (starts both frontend and backend)
 sh start.sh
 ```
 
@@ -153,6 +176,31 @@ DATABASE_URL=sqlite:///./debate_arena.db
 # Serper API (Search Tool)
 SERPER_API_KEY=your_serper_api_key_here
 ```
+
+### Frontend Environment Variables
+
+Configure in `frontend/.env` file:
+
+```env
+# API Base URL - Backend service address
+# - If set to a custom value (not http://localhost:8000), always use this URL
+# - If not set or default value:
+#   - Development (VITE_IS_DEV=true): Use this URL
+#   - Production (VITE_IS_DEV=false): Use relative path /api (requires Nginx proxy)
+VITE_API_BASE_URL=http://localhost:8000
+
+# Development environment flag
+# true: Development mode, directly access VITE_API_BASE_URL
+# false: Production mode, use relative path (requires Nginx proxy)
+VITE_IS_DEV=true
+```
+
+**Frontend Configuration Notes:**
+- **Development** (`VITE_IS_DEV=true`): Frontend directly accesses backend full URL (e.g., `http://localhost:8000/api/...`)
+- **Production** (`VITE_IS_DEV=false`):
+  - If custom `VITE_API_BASE_URL` is set (non-default), use full URL
+  - Otherwise use relative path (e.g., `/api/...`), requires Nginx reverse proxy
+- Change backend address by modifying `.env` file only, no code changes needed
 
 ### Model Configuration
 
@@ -247,28 +295,54 @@ Difficulty Multiplier:
 
 ```
 llm-debate-arena/
-├── backend/               # Backend Service
+├── backend/               # Backend Service (FastAPI + SQLAlchemy)
 │   ├── main.py           # FastAPI Application Entry
-│   ├── database.py       # Database Operations
-│   ├── models.py         # Data Models
-│   ├── tournament.py     # Tournament Logic
-│   ├── judge.py          # Judge System
-│   ├── elo.py            # ELO Algorithm
-│   ├── llm_client.py     # LLM Client
-│   ├── tools.py          # Tool Integration
+│   ├── database.py       # Database Operations Layer
+│   ├── models.py         # Pydantic Data Models
+│   ├── tournament.py     # Tournament Orchestration Logic
+│   ├── judge.py          # Multi-Judge Scoring System
+│   ├── elo.py            # ELO Ranking Algorithm
+│   ├── llm_client.py     # LLM Streaming Client
+│   ├── tools.py          # Tool Integration (Python/Search/Calculator)
+│   ├── auth.py           # JWT User Authentication
+│   ├── utils.py          # Utility Functions
 │   └── requirements.txt  # Python Dependencies
-├── frontend/              # Frontend Application
+│
+├── frontend/              # Frontend Application (React 18 + TypeScript + Vite)
 │   ├── src/
+│   │   ├── main.tsx      # Application Entry
+│   │   ├── App.tsx       # Root Component (Route Config)
+│   │   ├── config.ts     # Environment Config (API URL Management)
+│   │   ├── index.css     # Global Styles
 │   │   ├── pages/        # Page Components
+│   │   │   ├── Arena.tsx          # Debate Arena Homepage
+│   │   │   ├── Leaderboard.tsx    # ELO Leaderboard
+│   │   │   ├── MatchHistory.tsx   # Match History
+│   │   │   ├── Login.tsx          # Login Page
+│   │   │   └── Register.tsx       # Register Page
 │   │   ├── components/   # Reusable Components
+│   │   │   ├── DebateViewer.tsx   # Debate Streaming Display Component
+│   │   │   └── Toast.tsx          # Toast Notification Component
 │   │   └── hooks/        # Custom Hooks
-│   └── package.json      # Node Dependencies
+│   │       ├── useSSE.ts          # SSE Streaming Hook
+│   │       └── useToast.ts        # Toast Hook
+│   ├── .env              # Environment Variables
+│   ├── .env.example      # Environment Variables Template
+│   ├── package.json      # Node Dependencies
+│   ├── tsconfig.json     # TypeScript Config
+│   ├── vite.config.ts    # Vite Build Config
+│   ├── tailwind.config.js # Tailwind CSS Config
+│   └── postcss.config.js  # PostCSS Config
+│
 ├── docs/                  # Documentation
+│   ├── DOCKER.md         # Docker Deployment Guide
+│   └── main.png          # Demo Screenshot
 ├── tests/                 # Tests
 ├── Dockerfile             # Docker Build File
 ├── docker-compose.yml     # Docker Compose Configuration
 ├── .env.example           # Environment Variable Template
-├── start.sh               # Local Startup Script
+├── start.sh               # Local One-Click Startup Script
+├── pyproject.toml         # Python Project Config
 └── README.md              # Project Documentation
 
 Detailed Documentation:
@@ -281,6 +355,9 @@ Detailed Documentation:
 
 - [x] ~~Docker containerization deployment~~
 - [x] ~~Environment variable model configuration~~
+- [x] ~~Frontend Markdown table rendering support~~
+- [x] ~~On-demand tool activation (prevent hallucinations)~~
+- [x] ~~History sidebar hidden by default~~
 - [ ] Customizable LLM debate personalities
 - [ ] Human vs AI debates
 - [ ] Post-match analysis reports
