@@ -524,7 +524,7 @@ def build_debate_prompt(
     
     # 性格描述
     personality_traits = {
-        PersonalityType.RATIONAL: "你是一个理性分析型辩手，善用逻辑推理和数据分析。",
+        PersonalityType.RATIONAL: "你是一个理性分析型辩手，善用逻辑推理。",
         PersonalityType.AGGRESSIVE: "你是一个激进攻击型辩手，言辞犀利，直击要害，不留情面。",
         PersonalityType.DIPLOMATIC: "你是一个温和外交型辩手，善于沟通，注重礼貌和说服力。",
         PersonalityType.HUMOROUS: "你是一个幽默讽刺型辩手，善用比喻和反讽，寓教于乐。",
@@ -553,11 +553,11 @@ def build_debate_prompt(
         strategy = "请猛烈抨击正方的观点。寻找事实错误、逻辑漏洞或反例。提出更有说服力的替代观点。"
     
     # 工具说明（根据实际启用的工具动态生成）
-    tools_section = ""
+    tools_section = "- 无可用工具。"
     if enabled_tools:
         tool_descriptions = {
             'python_interpreter': '- `python_interpreter`: 运行代码证明你的观点',
-            'web_search': '- `web_search`: 搜索权威资料',
+            'web_search': '- `web_search`: 联网搜索权威资料',
             'calculator': '- `calculator`: 精确计算'
         }
         
@@ -567,11 +567,6 @@ def build_debate_prompt(
 【工具使用】
 你可以调用以下工具来增强论证：
 {tool_list}
-
-**注意**：
-- 工具是辅助手段，不是评分的绝对标准
-- 如果逻辑本身足够强，不用工具也能得高分
-- 滥用工具但未切中要害，不会加分
 """
     
     return f"""
@@ -597,7 +592,9 @@ def build_debate_prompt(
 1. 逻辑性 (Logic): 论证结构是否严密，是否有效反驳了对方
 2. 证据力 (Evidence): 是否使用了事实、数据或代码来支持观点
 3. 说服力 (Persuasion): 语言表达是否清晰、有力、切中要害
+
 {tools_section}
+
 【禁止行为】
 - 不要试图达成共识或妥协
 - 不要承认对方的核心观点
