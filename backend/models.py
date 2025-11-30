@@ -228,7 +228,7 @@ class MatchRequest(BaseModel):
     opponent_personality: Optional[str] = ""
     rounds: int = 3
     judges: List[str] = Field(default_factory=lambda: ["gpt-4o", "gpt-4o-mini"])
-    enabled_tools: List[str] = Field(default_factory=lambda: ["python_interpreter", "web_search", "calculator"])
+    enabled_tools: List[str] = Field(default_factory=list)  # 默认为空列表，不启用任何工具
     user_id: Optional[int] = None  # 用户ID（可选）
 
 

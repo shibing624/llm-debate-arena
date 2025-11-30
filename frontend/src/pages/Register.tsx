@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { UserPlus, Loader2 } from 'lucide-react'
+import { getApiUrl } from '../config'
 
 export default function Register() {
   const [email, setEmail] = useState('')
@@ -30,7 +31,7 @@ export default function Register() {
       // 使用邮箱前缀作为用户名
       const username = email.split('@')[0]
       
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch(getApiUrl('/api/auth/register'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, email, password })

@@ -8,8 +8,7 @@ Utility functions for LLM applications
 import uuid
 import json
 import re
-from typing import Optional
-from .llm_client import query_model
+
 
 def generate_id() -> str:
     """生成唯一 ID"""

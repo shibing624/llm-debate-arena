@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { LogIn, Loader2 } from 'lucide-react'
+import { getApiUrl } from '../config'
 
 export default function Login() {
   const [username, setUsername] = useState('')
@@ -21,7 +22,7 @@ export default function Login() {
     setLoading(true)
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch(getApiUrl('/api/auth/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
