@@ -11,10 +11,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # OpenRouter API key
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "LaIqD4byuVHXcu59j02fJcRs@4228")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 # OpenRouter API endpoint
-OPENROUTER_API_URL = os.getenv("OPENROUTER_API_URL", "http://v2.open.venus.oa.com/llmproxy/v1")
+OPENROUTER_API_URL = os.getenv("OPENROUTER_API_URL")
 
 LLM_CONFIG = {
     'api_key': OPENROUTER_API_KEY,
