@@ -469,7 +469,3 @@ perf: 性能优化
 test: 测试相关
 chore: 构建/工具链更新
 ```
-
-## 📄 许可证
-
-MIT License

@@ -14,19 +14,59 @@ LLM Debate Arena 是一个创新的 AI 辩论平台，让不同的大语言模�
 - 🎭 **性格注入**: 5种辩论风格（理性/激进/温和/幽默/学术）
 - 🔧 **工具增强**: Python解释器、网络搜索、计算器（可选）
 - 📊 **数据沉淀**: 完整历史记录、天梯榜、对战详情
-- 🎬 **实时流式**: SSE 推送，观赛体验极佳
+- 🎬 **实时流式**: SSE 推送，辩论过程体验佳
 - 👤 **用户系统**: 注册登录、历史记录、个人中心
-- 📱 **响应式设计**: 支持大屏展示，自适应布局
 
 ## 🚀 快速开始
 
-### 环境要求
+### 方式一：Docker 部署（推荐）
+
+使用 Docker Compose 一键启动：
+
+```bash
+# 1. 配置环境变量
+cp .env.example .env
+# 编辑 .env 文件，填写 API Keys
+
+# 2. 启动服务
+docker-compose up -d
+
+# 3. 查看日志
+docker-compose logs -f
+
+# 4. 停止服务
+docker-compose down
+```
+
+服务将在 `http://localhost:8000` 启动。
+
+> 📚 更多 Docker 部署细节，请参考 [Docker 部署指南](docs/DOCKER.md)
+
+#### Docker 单独构建
+
+```bash
+# 构建镜像
+docker build -t llm-debate-arena .
+
+# 运行容器
+docker run -d \
+  -p 8000:8000 \
+  -v $(pwd)/data:/app/data \
+  -e OPENROUTER_API_KEY=your_api_key \
+  -e AVAILABLE_MODELS=gpt-4o,gpt-4o-mini,claude-3.5-sonnet \
+  --name debate-arena \
+  llm-debate-arena
+```
+
+### 方式二：本地开发
+
+#### 环境要求
 
 - Python 3.10+
 - Node.js 18+
 - SQLite (默认) 或 PostgreSQL
 
-### 后端启动
+#### 后端启动
 
 ```bash
 # 进入后端目录
@@ -51,7 +91,7 @@ uvicorn backend.main:app --port 8000 --host 0.0.0.0 --loop uvloop
 
 API 文档: `http://localhost:8000/docs`
 
-### 前端启动
+#### 前端启动
 
 ```bash
 # 进入前端目录
@@ -64,14 +104,13 @@ npm install
 npm run dev
 ```
 
-前端服务运行在 `http://localhost:3000`
+前端服务运行在 `http://localhost:5173`
 
-### 一键启动（推荐）
+#### 一键启动脚本
 
 ```bash
 # 使用启动脚本
-chmod +x start.sh
-./start.sh
+sh start.sh
 ```
 
 
@@ -84,7 +123,10 @@ chmod +x start.sh
 ```env
 # LLM API 配置
 OPENROUTER_API_KEY=your_api_key_here
-OPENROUTER_API_URL=your_base_url
+OPENROUTER_API_URL=https://api.openai.com/v1
+
+# 可用模型列表（逗号分隔）
+AVAILABLE_MODELS=gpt-4o,gpt-4o-mini,claude-3.5-sonnet,gpt-5.1
 
 # 数据库配置
 DATABASE_URL=sqlite:///./debate_arena.db
@@ -92,6 +134,15 @@ DATABASE_URL=sqlite:///./debate_arena.db
 # Serper API (搜索工具)
 SERPER_API_KEY=your_serper_api_key_here
 ```
+
+### 模型配置
+
+通过 `AVAILABLE_MODELS` 环境变量添加可用模型：
+
+- 格式：逗号分隔的模型 ID
+- 示例：`gpt-4o,gpt-4o-mini,claude-3.5-sonnet,your-custom-model`
+- 模型会自动初始化，`display_name` 为模型 ID 的大写形式
+- 无需修改代码，重启服务即可生效
 
 
 ## 🎯 核心算法
@@ -121,8 +172,44 @@ K因子 (动态):
 4. 支持同模型对战（标记但不计入ELO）
 
 
+## 📦 项目结构
+
+```
+llm-debate-arena/
+├── backend/               # 后端服务
+│   ├── main.py           # FastAPI 应用入口
+│   ├── database.py       # 数据库操作
+│   ├── models.py         # 数据模型
+│   ├── tournament.py     # 锦标赛逻辑
+│   ├── judge.py          # 裁判系统
+│   ├── elo.py            # ELO 算法
+│   ├── llm_client.py     # LLM 客户端
+│   ├── tools.py          # 工具集成
+│   └── requirements.txt  # Python 依赖
+├── frontend/              # 前端应用
+│   ├── src/
+│   │   ├── pages/        # 页面组件
+│   │   ├── components/   # 可复用组件
+│   │   └── hooks/        # 自定义 Hooks
+│   └── package.json      # Node 依赖
+├── docs/                  # 文档
+├── tests/                 # 测试
+├── Dockerfile             # Docker 构建文件
+├── docker-compose.yml     # Docker Compose 配置
+├── .env.example           # 环境变量模板
+├── start.sh               # 本地启动脚本
+└── README.md              # 项目说明
+
+详细文档：
+- [Docker 部署指南](docs/DOCKER.md)
+- [后端 README](backend/README.md)
+- [前端 README](frontend/README.md)
+```
+
 ## 🔜 路线图
 
+- [x] ~~Docker 容器化部署~~
+- [x] ~~环境变量配置模型列表~~
 - [ ] LLM辩论性格可定制
 - [ ] 人机对战辩论
 - [ ] 赛后复盘报告

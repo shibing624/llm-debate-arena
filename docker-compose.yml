@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  # LLM Debate Arena 服务
+  debate-arena:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: llm-debate-arena
+    ports:
+      - "8000:8000"
+    environment:
+      # LLM API 配置
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_API_URL=${OPENROUTER_API_URL:-https://api.openai.com/v1}
+      
+      # 可用模型列表
+      - AVAILABLE_MODELS=${AVAILABLE_MODELS:-gpt-4o,gpt-4o-mini,claude-3.5-sonnet,gpt-5.1}
+      
+      # 数据库配置
+      - DATABASE_URL=sqlite:////app/data/debate_arena.db
+      
+      # Serper API (搜索工具)
+      - SERPER_API_KEY=${SERPER_API_KEY}
+    volumes:
+      # 持久化数据库
+      - debate-data:/app/data
+      # 挂载日志目录（可选）
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  debate-data:
+    driver: local
