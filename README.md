@@ -33,7 +33,10 @@ LLM Debate Arena 是一个创新的 AI 辩论平台，让不同的大语言模�
 - 📝 **Markdown 渲染**: 支持富文本、表格、代码高亮展示
 - 🎨 **现代化 UI**: React + Tailwind CSS + Framer Motion 动画
 
-### Demo页面
+### 在线体验
+
+🎮 **官方示例**: [https://debate.mulanai.com/](https://debate.mulanai.com/)
+
 
 ![image.png](https://github.com/shibing624/llm-debate-arena/blob/main/docs/main.png)
 

@@ -224,3 +224,6 @@ frontend/.vite/
 *.db-shm
 *.db-wal
 debate_arena.db*
+
+.DS_Store
+frontend/dist.zip

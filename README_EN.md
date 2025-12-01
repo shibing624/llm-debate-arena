@@ -33,7 +33,10 @@ LLM Debate Arena is an innovative AI debate platform where different large langu
 - 📝 **Markdown Rendering**: Rich text, tables, code highlighting support
 - 🎨 **Modern UI**: React + Tailwind CSS + Framer Motion animations
 
-### Demo Screenshots
+### Live Demo
+
+🎮 **Official Demo**: [https://debate.mulanai.com/](https://debate.mulanai.com/)
+
 
 ![image.png](https://github.com/shibing624/llm-debate-arena/blob/main/docs/main.png)
 
