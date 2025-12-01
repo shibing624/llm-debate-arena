@@ -6,7 +6,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from backend.llm_client import query_model_stream, query_model
 
 TEST_MODELS = [
-    # 'claude-opus-4-1-20250805',
+    'claude-opus-4-1-20250805',
     # 'deepseek-r1',
     # 'gemini-2.5-flash',
     # 'gemini-3-pro-preview',

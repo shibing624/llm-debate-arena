@@ -11,6 +11,8 @@ from datetime import datetime
 import json
 import os
 
+from .config import DATABASE_URL, AVAILABLE_MODELS
+from .log import logger
 from .models import (
     Base, CompetitorModel, DebateTopicModel, MatchModel,
     DifficultyLevel, TopicCategory, PersonalityType,
@@ -18,7 +20,6 @@ from .models import (
 )
 
 # SQLite 数据库（启用 WAL 模式以支持更好的并发）
-DATABASE_URL = "sqlite:///./debate_arena.db"
 engine = create_engine(
     DATABASE_URL, 
     connect_args={
@@ -38,11 +39,14 @@ def init_db():
     # 启用 WAL 模式以支持更好的并发
     try:
         import sqlite3
-        conn = sqlite3.connect('./debate_arena.db')
+        # 从 DATABASE_URL 中提取数据库文件路径
+        # DATABASE_URL 格式: sqlite:///./debate_arena.db
+        db_path = DATABASE_URL.replace('sqlite:///', '')
+        conn = sqlite3.connect(db_path)
         conn.execute('PRAGMA journal_mode=WAL')
         conn.close()
     except Exception as e:
-        print(f"启用 WAL 模式失败: {e}")
+        logger.error(f"启用 WAL 模式失败: {e}")
     
     # 初始化默认数据
     db = SessionLocal()
@@ -60,8 +64,7 @@ def init_db():
 def _init_default_competitors(db: Session):
     """从环境变量初始化选手"""
     # 从环境变量读取可用模型列表
-    available_models_str = os.getenv("AVAILABLE_MODELS", "gpt-4o,gpt-4o-mini,claude-3.5-sonnet,gpt-5.1")
-    model_ids = [m.strip() for m in available_models_str.split(",") if m.strip()]
+    model_ids = [m.strip() for m in AVAILABLE_MODELS.split(",") if m.strip()]
     
     competitors = []
     for model_id in model_ids:

@@ -29,29 +29,23 @@ async def judge_match_with_panel_stream(match: MatchSession, judges: List[str] =
     
     # 使用传入的裁判团，或使用配置的默认裁判团
     if judges is None:
-        from .config import JUDGE_PANEL
         judges = JUDGE_PANEL
     
-    # 筛选裁判 (排除参赛选手)
-    eligible_judges = [
-        j for j in judges
-        if j not in [match.proponent_model_id, match.opponent_model_id]
-    ]
-    
-    if len(eligible_judges) < 2:
+    # 确保至少有 2 个裁判
+    if len(judges) < 2:
         # 降级：使用默认裁判
-        eligible_judges = ["gpt-4o", "gpt-4o-mini"]
-        logger.warning(f"⚠️ 可用裁判不足，使用默认裁判: {eligible_judges}")
+        judges = ["gpt-4o", "gpt-4o-mini"]
+        logger.warning(f"⚠️ 裁判数量不足，使用默认裁判: {judges}")
     
-    logger.info(f"📋 裁判团: {eligible_judges}")
-    yield {"type": "judge_start", "judges": eligible_judges}
+    logger.info(f"📋 裁判团: {judges}")
+    yield {"type": "judge_start", "judges": judges}
     
     # 并行调用裁判 (带进度推送)
     judge_scores: List[JudgeScore] = []
-    total_judges = len(eligible_judges)
+    total_judges = len(judges)
     
     tasks = []
-    for i, judge_model in enumerate(eligible_judges):
+    for i, judge_model in enumerate(judges):
         tasks.append(judge_single_with_progress(match, judge_model, i, total_judges))
     
     # 收集裁判评分
@@ -290,8 +284,8 @@ def format_transcript(history: List[Turn]) -> str:
 
 def generate_final_reasoning(
     judge_scores: List[JudgeScore],
-    裁判团胜者: str,
-    观众胜者: Optional[str]
+    judge_winner: str,
+    audience_winner: Optional[str]
 ) -> str:
     """生成综合判词"""
     
@@ -302,8 +296,8 @@ def generate_final_reasoning(
     combined = "\n\n".join(reasoning_parts)
     
     audience_note = ""
-    if 观众胜者:
-        audience_note = f"\n\n【观众投票】: 观众更支持{观众胜者}方。"
+    if audience_winner:
+        audience_note = f"\n\n【观众投票】: 观众更支持{audience_winner}方。"
     
     return f"【裁判团综合判词】\n\n{combined}{audience_note}"
 

@@ -22,6 +22,8 @@ LLM_CONFIG = {
     'timeout': 300.0
 }
 
+AVAILABLE_MODELS = os.getenv("AVAILABLE_MODELS", "gpt-4o,gpt-4o-mini,gpt-5")
+
 # ========== 裁判团配置 ==========
 
 JUDGE_PANEL = [
@@ -49,3 +51,6 @@ ELO_CONFIG = {
     "k_factor_mid": 32,      # 成长期 (10-30 场)
     "k_factor_stable": 16,   # 成熟期 (> 30 场)
 }
+
+# tools
+SERPER_API_KEY = os.getenv("SERPER_API_KEY")

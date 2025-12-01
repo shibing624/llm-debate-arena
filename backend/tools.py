@@ -13,9 +13,8 @@ import math
 from typing import Any, List, Union
 from datetime import datetime
 from loguru import logger
+from .config import SERPER_API_KEY
 
-# 环境变量
-SERPER_API_KEY = os.getenv("SERPER_API_KEY")
 
 async def execute_tool(tool_call: dict) -> Any:
     """
