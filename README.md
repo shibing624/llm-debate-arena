@@ -366,6 +366,13 @@ llm-debate-arena/
 - [ ] 社区讨论区
 
 
+## 📚 文档
+
+- [生产环境部署指南](docs/DEPLOYMENT.md) - HTTPS 部署、Nginx 配置、故障排查
+- [前端开发文档](frontend/README.md) - 前端技术栈、开发规范
+- [API 文档](http://localhost:8000/docs) - FastAPI 自动生成的 API 文档
+
+
 ## Contact
 
 - Issue(建议)：[![GitHub issues](https://img.shields.io/github/issues/shibing624/llm-debate-arena.svg)](https://github.com/shibing624/llm-debate-arena/issues)

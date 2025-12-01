@@ -26,6 +26,7 @@ client = AsyncOpenAI(
     base_url=LLM_CONFIG['base_url'],
     timeout=LLM_CONFIG['timeout']
 )
+logger.info(f"LLM client: {client}, LLM base_url: {LLM_CONFIG['base_url']}, api_key: {LLM_CONFIG.get('api_key', '')[:6]}...")
 
 
 async def query_model_stream(
