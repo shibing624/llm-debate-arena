@@ -142,11 +142,6 @@ async def query_model_stream(
                             if hasattr(tc_delta.function, 'arguments') and tc_delta.function.arguments:
                                 tool_call_buffer[idx]["function"]["arguments"] += tc_delta.function.arguments
             
-            # 检查是否完成
-            if hasattr(choice, 'finish_reason') and choice.finish_reason:
-                logger.info(f"流式调用完成: {choice.finish_reason}")
-                break
-        
         # 整理工具调用
         if tool_call_buffer:
             accumulated_tool_calls = [tool_call_buffer[i] for i in sorted(tool_call_buffer.keys())]
@@ -164,9 +159,7 @@ async def query_model_stream(
             "content": accumulated_content,
             "tool_calls": accumulated_tool_calls
         }
-        
-        logger.info(f"模型调用完成，内容长度: {len(accumulated_content)}, 工具调用: {len(accumulated_tool_calls)}")
-        
+        # logger.info(f"模型调用完成，内容长度: {len(accumulated_content)}, 工具调用: {len(accumulated_tool_calls)}")
     except RateLimitError as e:
         error_msg = f"API 限流错误 (QPM/RPM 超限): {str(e)}"
         logger.error(f"流式调用失败 [{model_id}]: {error_msg}", exc_info=True)
