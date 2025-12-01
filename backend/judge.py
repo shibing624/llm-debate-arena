@@ -223,11 +223,19 @@ async def judge_single(match: MatchSession, judge_model: str) -> JudgeScore:
     try:
         logger.debug(f"   发送评分请求到 {judge_model}")
         response = await query_model(judge_model, [{"role": "user", "content": judge_prompt}])
+        
+        # 检查是否有错误
+        if "error_type" in response:
+            error_type = response.get("error_type", "unknown")
+            error_msg = response.get("content", "Unknown error")
+            logger.error(f"❌ 裁判 {judge_model} API调用失败 [{error_type}]: {error_msg}")
+            raise ValueError(f"API调用失败 [{error_type}]: {error_msg}")
+        
         result = parse_json(response['content'])
         
         # 验证必要字段
         if not result or 'scores' not in result:
-            raise ValueError("Invalid judge response")
+            raise ValueError(f"Invalid judge response: {response['content'][:200]}")
         
         logger.debug(f"   {judge_model} 评分结果: {result.get('winner', 'unknown')}")
         
@@ -237,9 +245,9 @@ async def judge_single(match: MatchSession, judge_model: str) -> JudgeScore:
             winner=result.get('winner', 'draw'),
             reasoning=result.get('reasoning', '')
         )
-    except Exception as e:
-        logger.error(f"❌ 裁判 {judge_model} 评分失败: {e}", exc_info=True)
-        # 返回默认评分
+    except ValueError as e:
+        # JSON 解析错误或响应格式错误
+        logger.error(f"❌ 裁判 {judge_model} 响应格式错误: {e}", exc_info=True)
         return JudgeScore(
             judge_model=judge_model,
             scores={
@@ -247,7 +255,19 @@ async def judge_single(match: MatchSession, judge_model: str) -> JudgeScore:
                 "opponent": {"logic": 5.0, "evidence": 5.0, "persuasion": 5.0}
             },
             winner="draw",
-            reasoning="评分出错，默认平局"
+            reasoning=f"评分出错（响应格式错误），默认平局。错误: {str(e)}"
+        )
+    except Exception as e:
+        # 其他未知错误
+        logger.error(f"❌ 裁判 {judge_model} 评分失败 (未知错误): {type(e).__name__} - {e}", exc_info=True)
+        return JudgeScore(
+            judge_model=judge_model,
+            scores={
+                "proponent": {"logic": 5.0, "evidence": 5.0, "persuasion": 5.0},
+                "opponent": {"logic": 5.0, "evidence": 5.0, "persuasion": 5.0}
+            },
+            winner="draw",
+            reasoning=f"评分出错（{type(e).__name__}），默认平局"
         )
 
 

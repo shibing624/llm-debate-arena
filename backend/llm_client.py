@@ -3,7 +3,15 @@
 @author:XuMing(xuming624@qq.com)
 @description: LLM 客户端 - 兼容 OpenAI SDK"""
 
-from openai import AsyncOpenAI
+from openai import (
+    AsyncOpenAI,
+    APIError,
+    APIConnectionError,
+    RateLimitError,
+    APITimeoutError,
+    AuthenticationError,
+    BadRequestError
+)
 import json
 from typing import List, Dict, AsyncGenerator, Optional
 import sys
@@ -159,12 +167,34 @@ async def query_model_stream(
         
         logger.info(f"模型调用完成，内容长度: {len(accumulated_content)}, 工具调用: {len(accumulated_tool_calls)}")
         
+    except RateLimitError as e:
+        error_msg = f"API 限流错误 (QPM/RPM 超限): {str(e)}"
+        logger.error(f"流式调用失败 [{model_id}]: {error_msg}", exc_info=True)
+        yield {"type": "error", "error": error_msg, "error_type": "rate_limit"}
+    except APITimeoutError as e:
+        error_msg = f"API 超时错误: {str(e)}"
+        logger.error(f"流式调用失败 [{model_id}]: {error_msg}", exc_info=True)
+        yield {"type": "error", "error": error_msg, "error_type": "timeout"}
+    except APIConnectionError as e:
+        error_msg = f"API 连接错误 (网络问题): {str(e)}"
+        logger.error(f"流式调用失败 [{model_id}]: {error_msg}", exc_info=True)
+        yield {"type": "error", "error": error_msg, "error_type": "connection"}
+    except AuthenticationError as e:
+        error_msg = f"API 认证错误 (API Key 无效): {str(e)}"
+        logger.error(f"流式调用失败 [{model_id}]: {error_msg}", exc_info=True)
+        yield {"type": "error", "error": error_msg, "error_type": "auth"}
+    except BadRequestError as e:
+        error_msg = f"API 请求错误 (参数无效): {str(e)}"
+        logger.error(f"流式调用失败 [{model_id}]: {error_msg}", exc_info=True)
+        yield {"type": "error", "error": error_msg, "error_type": "bad_request"}
+    except APIError as e:
+        error_msg = f"API 通用错误: {str(e)}"
+        logger.error(f"流式调用失败 [{model_id}]: {error_msg}", exc_info=True)
+        yield {"type": "error", "error": error_msg, "error_type": "api_error"}
     except Exception as e:
-        logger.error(f"流式调用失败: {model_id}, 错误: {e}", exc_info=True)
-        yield {
-            "type": "error",
-            "error": str(e)
-        }
+        error_msg = f"未知错误: {type(e).__name__} - {str(e)}"
+        logger.error(f"流式调用失败 [{model_id}]: {error_msg}", exc_info=True)
+        yield {"type": "error", "error": error_msg, "error_type": "unknown"}
 
 
 async def query_model(model_id: str, messages: List[Dict], temperature: float = 0.7) -> Dict:
@@ -213,9 +243,34 @@ async def query_model(model_id: str, messages: List[Dict], temperature: float = 
         logger.info(f"模型调用成功，内容长度: {len(result['content'])}, result: {result}")
         return result
         
+    except RateLimitError as e:
+        error_msg = f"API 限流错误 (QPM/RPM 超限): {str(e)}"
+        logger.error(f"模型调用失败 [{model_id}]: {error_msg}", exc_info=True)
+        return {"content": f"Error: {error_msg}", "tool_calls": [], "error_type": "rate_limit"}
+    except APITimeoutError as e:
+        error_msg = f"API 超时错误: {str(e)}"
+        logger.error(f"模型调用失败 [{model_id}]: {error_msg}", exc_info=True)
+        return {"content": f"Error: {error_msg}", "tool_calls": [], "error_type": "timeout"}
+    except APIConnectionError as e:
+        error_msg = f"API 连接错误 (网络问题): {str(e)}"
+        logger.error(f"模型调用失败 [{model_id}]: {error_msg}", exc_info=True)
+        return {"content": f"Error: {error_msg}", "tool_calls": [], "error_type": "connection"}
+    except AuthenticationError as e:
+        error_msg = f"API 认证错误 (API Key 无效): {str(e)}"
+        logger.error(f"模型调用失败 [{model_id}]: {error_msg}", exc_info=True)
+        return {"content": f"Error: {error_msg}", "tool_calls": [], "error_type": "auth"}
+    except BadRequestError as e:
+        error_msg = f"API 请求错误 (参数无效): {str(e)}"
+        logger.error(f"模型调用失败 [{model_id}]: {error_msg}", exc_info=True)
+        return {"content": f"Error: {error_msg}", "tool_calls": [], "error_type": "bad_request"}
+    except APIError as e:
+        error_msg = f"API 通用错误: {str(e)}"
+        logger.error(f"模型调用失败 [{model_id}]: {error_msg}", exc_info=True)
+        return {"content": f"Error: {error_msg}", "tool_calls": [], "error_type": "api_error"}
     except Exception as e:
-        logger.error(f"模型调用失败: {model_id}, 错误: {e}", exc_info=True)
-        return {"content": f"Error: {str(e)}", "tool_calls": []}
+        error_msg = f"未知错误: {type(e).__name__} - {str(e)}"
+        logger.error(f"模型调用失败 [{model_id}]: {error_msg}", exc_info=True)
+        return {"content": f"Error: {error_msg}", "tool_calls": [], "error_type": "unknown"}
 
 
 # add demo

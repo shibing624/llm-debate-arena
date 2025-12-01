@@ -221,18 +221,26 @@ async def run_tournament_match(
     # === 更新 ELO ===
     elo_changes = None
     if not same_model_battle:
-        logger.info("📊 更新 ELO 排名")
+        logger.info("📊 准备更新 ELO 排名")
         try:
             # 确保 result 存在才更新 ELO
             if match.result is not None:
                 elo_changes = await update_elo_ratings(match)
-                yield {"type": "elo_update", "data": elo_changes}
-                logger.info(f"✅ ELO 更新完成: 正方 {elo_changes['proponent']['change']:+d}, 反方 {elo_changes['opponent']['change']:+d}")
+                
+                # 检查是否跳过了 ELO 更新
+                if elo_changes.get('proponent', {}).get('skipped'):
+                    skip_reason = elo_changes['proponent'].get('reason', '未知原因')
+                    logger.warning(f"⚠️ ELO 更新被跳过: {skip_reason}")
+                    yield {"type": "elo_update", "data": {"message": f"跳过ELO更新: {skip_reason}", "skip": True}}
+                else:
+                    logger.info(f"✅ ELO 更新完成: 正方 {elo_changes['proponent']['change']:+d}, 反方 {elo_changes['opponent']['change']:+d}")
+                    yield {"type": "elo_update", "data": elo_changes}
             else:
                 logger.warning("⚠️ 比赛结果为空，跳过 ELO 更新")
-                yield {"type": "elo_update", "data": {"error": "比赛结果为空"}}
+                yield {"type": "elo_update", "data": {"error": "比赛结果为空", "skip": True}}
         except Exception as e:
-            logger.error(f"❌ ELO 更新失败: {e}", exc_info=True)
+            logger.error(f"❌ ELO 更新失败: {type(e).__name__} - {e}", exc_info=True)
+            yield {"type": "elo_update", "data": {"error": f"ELO更新失败: {str(e)}", "skip": True}}
     else:
         logger.info("⚠️ 同模型对战，跳过 ELO 更新")
         yield {"type": "elo_update", "data": {"message": "同模型对战，不计ELO", "skip": True}}
