@@ -389,3 +389,102 @@ async def get_match_history(limit: int = 20, model_id: str = None, user_id: int 
         return query.order_by(desc(MatchModel.created_at)).limit(limit).all()
     finally:
         db.close()
+
+
+async def get_model_statistics(model_id: str) -> dict:
+    """
+    获取模型的统计数据（脱敏版本，不包含具体辩题内容）
+    
+    Returns:
+        {
+            "recent_form": ["W", "L", "D", ...],  # 最近10场战绩
+            "win_streak": 3,
+            "loss_streak": 0,
+            "elo_trend": +25,  # 最近5场ELO变化
+            "peak_elo": 1250,
+            "total_matches": 50
+        }
+    """
+    db = SessionLocal()
+    try:
+        # 获取该模型的最近比赛记录
+        matches = db.query(MatchModel).filter(
+            (
+                (MatchModel.proponent_model_id == model_id) | 
+                (MatchModel.opponent_model_id == model_id)
+            ),
+            MatchModel.status == 'FINISHED'
+        ).order_by(desc(MatchModel.finished_at)).limit(20).all()
+        
+        # 计算最近战绩
+        recent_form = []
+        for match in matches[:10]:
+            result = _get_match_result_for_model(match, model_id)
+            recent_form.append(result)
+        
+        # 计算连胜/连败
+        win_streak = 0
+        loss_streak = 0
+        for result in recent_form:
+            if result == 'W':
+                win_streak += 1
+                loss_streak = 0
+            elif result == 'L':
+                loss_streak += 1
+                win_streak = 0
+            else:  # Draw
+                break
+        
+        # 计算ELO趋势（最近5场）
+        elo_changes = []
+        for match in matches[:5]:
+            if match.elo_changes:
+                if match.proponent_model_id == model_id:
+                    change = match.elo_changes.get('proponent', {}).get('change', 0)
+                    elo_changes.append(change)
+                else:
+                    change = match.elo_changes.get('opponent', {}).get('change', 0)
+                    elo_changes.append(change)
+        
+        elo_trend = sum(elo_changes) if elo_changes else 0
+        
+        # 获取当前ELO和历史最高ELO
+        competitor = db.query(CompetitorModel).filter(
+            CompetitorModel.model_id == model_id
+        ).first()
+        
+        current_elo = competitor.elo_rating if competitor else 1200
+        peak_elo = current_elo
+        
+        # 从ELO历史中找出最高值
+        if competitor and competitor.elo_history:
+            for record in competitor.elo_history:
+                if record.get('rating', 0) > peak_elo:
+                    peak_elo = record['rating']
+        
+        return {
+            "recent_form": recent_form,
+            "win_streak": win_streak,
+            "loss_streak": loss_streak,
+            "elo_trend": int(elo_trend),
+            "peak_elo": peak_elo,
+            "total_matches": len(matches)
+        }
+    finally:
+        db.close()
+
+
+def _get_match_result_for_model(match: MatchModel, model_id: str) -> str:
+    """判断模型在某场比赛中的结果"""
+    if not match.judge_result or not match.judge_result.get('winner'):
+        return 'D'
+    
+    winner = match.judge_result['winner']
+    is_proponent = match.proponent_model_id == model_id
+    
+    if winner == 'draw':
+        return 'D'
+    elif (winner == 'proponent' and is_proponent) or (winner == 'opponent' and not is_proponent):
+        return 'W'
+    else:
+        return 'L'

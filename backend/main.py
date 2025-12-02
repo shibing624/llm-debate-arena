@@ -20,12 +20,11 @@ from backend.log import logger
 from backend.models import MatchRequest, CompetitorProfile, DebateTopic, UserRegister, UserLogin, UserProfile, UserModel
 from backend.database import (
     init_db, get_db, get_all_competitors, get_all_topics,
-    get_match, get_match_history
+    get_match, get_match_history, get_model_statistics
 )
-from backend.tournament import run_tournament_match, cancel_match, get_active_matches
+from backend.tournament import run_tournament_match
 from backend.auth import hash_password, verify_password, create_access_token, decode_access_token
 
-# 初始化 FastAPI
 app = FastAPI(
     title="LLM Debate Arena API",
     description="竞技对抗型 AI 辩论挑战赛",
@@ -170,33 +169,6 @@ async def get_match_detail(match_id: str):
     }
 
 
-@app.post("/api/tournament/match/{match_id}/cancel")
-async def cancel_match_endpoint(match_id: str):
-    """
-    中止正在进行的比赛
-    """
-    logger.info(f"🛑 收到中止比赛请求: {match_id}")
-    
-    success = cancel_match(match_id)
-    
-    if success:
-        logger.info(f"✅ 比赛中止成功: {match_id}")
-        return {"success": True, "message": "比赛中止请求已发送"}
-    else:
-        logger.warning(f"❌ 比赛中止失败: {match_id} (比赛可能不存在或已结束)")
-        return {"success": False, "message": "比赛不存在或已结束"}
-
-
-@app.get("/api/tournament/matches/active")
-async def get_active_matches_endpoint():
-    """
-    获取所有活跃比赛
-    """
-    active_matches = get_active_matches()
-    logger.info(f"📊 当前活跃比赛数: {len(active_matches)}")
-    return {"active_matches": active_matches, "count": len(active_matches)}
-
-
 # ========== 排行榜 ==========
 
 @app.get("/api/tournament/leaderboard", response_model=List[CompetitorProfile])
@@ -262,6 +234,25 @@ async def get_history(limit: int = 20, model_id: str = None, user_id: int = None
         ]
     except Exception as e:
         logger.error(f"❌ 获取历史记录失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========== 模型统计（脱敏） ==========
+
+@app.get("/api/tournament/model/{model_id}/stats")
+async def get_model_stats(model_id: str, db: Session = Depends(get_db)):
+    """
+    获取模型的统计数据（脱敏版本，不包含具体辩题内容）
+    """
+    logger.info(f"📊 获取模型统计数据: {model_id}")
+    
+    try:
+        stats = await get_model_statistics(model_id)
+        
+        logger.info(f"✅ 返回统计数据: {model_id}")
+        return stats
+    except Exception as e:
+        logger.error(f"❌ 获取统计数据失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

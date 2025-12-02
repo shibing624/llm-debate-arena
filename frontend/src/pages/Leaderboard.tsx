@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Trophy, Home } from 'lucide-react'
+import { Trophy, Home, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { getApiUrl } from '../config'
 
@@ -15,14 +15,14 @@ interface Competitor {
   win_rate: number
 }
 
-interface MatchHistory {
-  match_id: string
-  topic: string
-  proponent_model_id: string
-  opponent_model_id: string
-  judge_result: any
-  same_model_battle: boolean
-  created_at: string
+// 🔧 新增：模型统计数据（脱敏）
+interface ModelStats {
+  recent_form: ('W' | 'L' | 'D')[]  // 最近10场战绩
+  win_streak: number  // 当前连胜
+  loss_streak: number  // 当前连败
+  elo_trend: number  // ELO趋势（最近变化）
+  peak_elo: number  // 历史最高ELO
+  total_matches: number
 }
 
 export default function Leaderboard() {
@@ -30,7 +30,7 @@ export default function Leaderboard() {
   const [competitors, setCompetitors] = useState<Competitor[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedModel, setExpandedModel] = useState<string | null>(null)
-  const [modelHistory, setModelHistory] = useState<Record<string, MatchHistory[]>>({})
+  const [modelStats, setModelStats] = useState<Record<string, ModelStats>>({})
 
   useEffect(() => {
     fetchLeaderboard()
@@ -49,50 +49,56 @@ export default function Leaderboard() {
     }
   }
 
-  const fetchModelHistory = async (modelId: string) => {
-    if (modelHistory[modelId]) {
+  // 🔧 新增：获取模型统计数据（脱敏版本）
+  const fetchModelStats = async (modelId: string) => {
+    if (modelStats[modelId]) {
       return // 已加载
     }
 
     try {
-      const apiUrl = getApiUrl(`/api/tournament/matches/history?model_id=${modelId}&limit=20`)
+      const apiUrl = getApiUrl(`/api/tournament/model/${modelId}/stats`)
       const response = await fetch(apiUrl)
       const data = await response.json()
       
-      setModelHistory(prev => ({
+      setModelStats(prev => ({
         ...prev,
         [modelId]: data
       }))
     } catch (error) {
-      console.error('获取历史记录失败:', error)
+      console.error('获取统计数据失败:', error)
     }
   }
 
-  // 判断该模型在某场比赛中的胜负
-  const getMatchResult = (match: MatchHistory, modelId: string): 'win' | 'loss' | 'draw' => {
-    if (!match.judge_result || !match.judge_result.winner) {
-      return 'draw'
-    }
-    
-    const winner = match.judge_result.winner
-    const isProponent = match.proponent_model_id === modelId
-    
-    if (winner === 'draw') {
-      return 'draw'
-    } else if ((winner === 'proponent' && isProponent) || (winner === 'opponent' && !isProponent)) {
-      return 'win'
-    } else {
-      return 'loss'
-    }
-  }
-
-  const toggleHistory = (modelId: string) => {
+  const toggleStats = (modelId: string) => {
     if (expandedModel === modelId) {
       setExpandedModel(null)
     } else {
       setExpandedModel(modelId)
-      fetchModelHistory(modelId)
+      fetchModelStats(modelId)
     }
+  }
+
+  // 🔧 渲染战绩条（W/L/D）
+  const renderRecentForm = (form: ('W' | 'L' | 'D')[]) => {
+    return (
+      <div className="flex items-center space-x-1">
+        {form.map((result, idx) => (
+          <div
+            key={idx}
+            className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${
+              result === 'W'
+                ? 'bg-green-500 text-white'
+                : result === 'L'
+                ? 'bg-red-500 text-white'
+                : 'bg-gray-400 text-white'
+            }`}
+            title={result === 'W' ? '胜' : result === 'L' ? '负' : '平'}
+          >
+            {result}
+          </div>
+        ))}
+      </div>
+    )
   }
 
   if (loading) {
@@ -120,11 +126,16 @@ export default function Leaderboard() {
         </button>
       </div>
 
+      {/* 🔧 隐私保护提示 */}
+      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+        🔒 为保护用户隐私，仅展示模型的统计数据，不显示具体对战内容
+      </div>
+
       <div className="space-y-4">
         {competitors.map((comp, i) => (
           <div
             key={comp.model_id}
-            onClick={() => toggleHistory(comp.model_id)}
+            onClick={() => toggleStats(comp.model_id)}
             className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition cursor-pointer"
           >
             <div className="flex items-center justify-between mb-4">
@@ -169,59 +180,84 @@ export default function Leaderboard() {
               </div>
             </div>
 
-            {/* 展开的历史记录 */}
+            {/* 🔧 展开的统计数据（脱敏版本） */}
             {expandedModel === comp.model_id && (
               <div 
-                className="mt-4 space-y-2 max-h-96 overflow-y-auto border-t pt-4"
+                className="mt-4 space-y-3 border-t pt-4"
                 onClick={(e) => e.stopPropagation()}
               >
-                {modelHistory[comp.model_id]?.length > 0 ? (
-                  modelHistory[comp.model_id].map((match) => {
-                    const result = getMatchResult(match, comp.model_id)
-                    const opponentModel = match.proponent_model_id === comp.model_id 
-                      ? match.opponent_model_id 
-                      : match.proponent_model_id
-                    
-                    return (
-                      <div
-                        key={match.match_id}
-                        className="p-3 bg-gray-50 rounded border border-gray-200 text-sm"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="font-medium text-gray-900 mb-1">
-                              {match.topic}
-                            </div>
-                            <div className="text-xs text-gray-500 flex items-center space-x-2">
-                              <span>vs {opponentModel}</span>
-                              {match.same_model_battle && (
-                                <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded">
-                                  同模型对战
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-xs text-gray-400 mt-1">
-                              {new Date(match.created_at).toLocaleDateString('zh-CN')}
-                            </div>
-                          </div>
-                          <div
-                            className={`ml-4 px-3 py-1 rounded text-xs font-semibold ${
-                              result === 'win'
-                                ? 'bg-green-100 text-green-700'
-                                : result === 'loss'
-                                ? 'bg-red-100 text-red-700'
-                                : 'bg-gray-100 text-gray-700'
-                            }`}
-                          >
-                            {result === 'win' ? '胜' : result === 'loss' ? '负' : '平'}
+                {modelStats[comp.model_id] ? (
+                  <>
+                    {/* 最近战绩 */}
+                    <div className="bg-gray-50 rounded p-3">
+                      <div className="text-xs text-gray-600 mb-2">最近10场战绩</div>
+                      {renderRecentForm(modelStats[comp.model_id].recent_form)}
+                    </div>
+
+                    {/* 关键指标 */}
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* 连胜/连败 */}
+                      {modelStats[comp.model_id].win_streak > 0 && (
+                        <div className="bg-green-50 rounded p-3">
+                          <div className="flex items-center space-x-2">
+                            <TrendingUp className="w-4 h-4 text-green-600" />
+                            <span className="text-sm text-gray-700">
+                              连胜 <span className="font-bold text-green-600">{modelStats[comp.model_id].win_streak}</span> 场
+                            </span>
                           </div>
                         </div>
+                      )}
+                      
+                      {modelStats[comp.model_id].loss_streak > 0 && (
+                        <div className="bg-red-50 rounded p-3">
+                          <div className="flex items-center space-x-2">
+                            <TrendingDown className="w-4 h-4 text-red-600" />
+                            <span className="text-sm text-gray-700">
+                              连败 <span className="font-bold text-red-600">{modelStats[comp.model_id].loss_streak}</span> 场
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 历史最高ELO */}
+                      <div className="bg-blue-50 rounded p-3">
+                        <div className="text-xs text-gray-600">历史最高</div>
+                        <div className="text-lg font-bold text-blue-600">
+                          {modelStats[comp.model_id].peak_elo}
+                        </div>
                       </div>
-                    )
-                  })
+
+                      {/* ELO趋势 */}
+                      <div className={`rounded p-3 ${
+                        modelStats[comp.model_id].elo_trend > 0 
+                          ? 'bg-green-50' 
+                          : modelStats[comp.model_id].elo_trend < 0 
+                          ? 'bg-red-50' 
+                          : 'bg-gray-50'
+                      }`}>
+                        <div className="text-xs text-gray-600">近期趋势</div>
+                        <div className={`text-lg font-bold flex items-center space-x-1 ${
+                          modelStats[comp.model_id].elo_trend > 0 
+                            ? 'text-green-600' 
+                            : modelStats[comp.model_id].elo_trend < 0 
+                            ? 'text-red-600' 
+                            : 'text-gray-600'
+                        }`}>
+                          {modelStats[comp.model_id].elo_trend > 0 ? (
+                            <TrendingUp className="w-4 h-4" />
+                          ) : modelStats[comp.model_id].elo_trend < 0 ? (
+                            <TrendingDown className="w-4 h-4" />
+                          ) : (
+                            <Minus className="w-4 h-4" />
+                          )}
+                          <span>{modelStats[comp.model_id].elo_trend > 0 ? '+' : ''}{modelStats[comp.model_id].elo_trend}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </>
                 ) : (
                   <div className="text-center text-gray-400 py-4 text-sm">
-                    无记录
+                    无
                   </div>
                 )}
               </div>

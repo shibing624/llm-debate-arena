@@ -18,10 +18,6 @@ from .elo import update_elo_ratings
 from .database import save_match, update_match_status
 from .utils import generate_id
 
-# 全局字典：跟踪正在进行的比赛，用于中止功能
-# key: match_id, value: {"should_stop": bool}
-_active_matches = {}
-
 
 async def run_tournament_match(
     topic: str,
@@ -50,7 +46,7 @@ async def run_tournament_match(
         enabled_tools = []  # 默认为空，不启用任何工具
     
     # 处理性格：空字符串或None转换为默认rational
-    from .models import PersonalityType
+    
     prop_personality_enum = PersonalityType.RATIONAL
     opp_personality_enum = PersonalityType.RATIONAL
     
@@ -59,12 +55,9 @@ async def run_tournament_match(
     if opp_personality and opp_personality in [e.value for e in PersonalityType]:
         opp_personality_enum = PersonalityType(opp_personality)
     
-    logger.info(f"🎮 开始新比赛: {topic}")
-    logger.info(f"   正方: {prop_model_id} ({prop_personality_enum})")
-    logger.info(f"   反方: {opp_model_id} ({opp_personality_enum})")
-    logger.info(f"   轮次: {rounds}, 难度: {topic_difficulty}")
-    logger.info(f"   裁判团: {judges}")
-    logger.info(f"   可用工具: {enabled_tools}")
+    logger.info(f"开始新比赛: {topic}")
+    logger.info(f"正方: {prop_model_id} ({prop_personality_enum}) | 反方: {opp_model_id} ({opp_personality_enum})")
+    logger.info(f"轮次: {rounds} | 难度: {topic_difficulty} | 裁判: {judges} | 工具: {enabled_tools}")
     
     # 创建比赛会话
     match = MatchSession(
@@ -80,16 +73,11 @@ async def run_tournament_match(
         user_id=user_id  # 传递用户ID
     )
     
-    # ⚠️ 重要：立即注册到活跃列表（在第一个 yield 之前）
-    # 这样可以确保用户能够立即中止比赛
-    _active_matches[match.match_id] = {"should_stop": False}
-    logger.info(f"✅ 比赛已注册到活跃列表: {match.match_id}")
-    
     # 立即 yield 初始事件，让前端获取 match_id（触发生成器执行）
     yield {"type": "match_init", "match_id": match.match_id}
     
     await save_match(match)
-    logger.info(f"✅ 比赛会话已创建: {match.match_id}")
+    logger.info(f"比赛会话已创建: {match.match_id}")
     
     yield {"type": "match_start", "data": match.model_dump(mode='json')}
     
@@ -98,17 +86,7 @@ async def run_tournament_match(
     
     # === 正式辩论 ===
     for r in range(1, rounds + 1):
-        # 🛑 检查是否需要中止
-        if _active_matches.get(match.match_id, {}).get("should_stop", False):
-            logger.warning(f"⚠️ 比赛被中止: {match.match_id}")
-            match.status = "CANCELLED"
-            await save_match(match)
-            yield {"type": "match_cancelled", "match_id": match.match_id, "message": "比赛已被用户中止"}
-            # 清理活跃比赛记录
-            _active_matches.pop(match.match_id, None)
-            return
-        
-        logger.info(f"📍 开始 Round {r}")
+        logger.info(f"开始 Round {r}")
         
         # === 正方发言 (流式) ===
         yield {"type": "status", "speaker": "proponent", "content": f"Round {r}: 正方正在思考..."}
@@ -124,40 +102,22 @@ async def run_tournament_match(
                 context=context,
                 is_opening=(r==1),
                 enabled_tools=enabled_tools,  # 传递工具列表
-                match_id=match.match_id  # 传递match_id用于检查中止
+                match_id=match.match_id  # 传递match_id
             ):
-                # 🛑 在流式输出中也检查中止
-                if _active_matches.get(match.match_id, {}).get("should_stop", False):
-                    logger.warning(f"⚠️ 正方发言中被中止: {match.match_id}")
-                    match.status = "CANCELLED"
-                    await save_match(match)
-                    yield {"type": "match_cancelled", "match_id": match.match_id, "message": "比赛已被用户中止"}
-                    _active_matches.pop(match.match_id, None)
-                    return
-                
                 if event["type"] == "turn_complete":
                     # turn_complete 事件中的 turn 是 dict，需要转换回 Turn 对象
                     turn_dict = event["turn"]
                     prop_turn = Turn(**turn_dict)
                     match.history.append(prop_turn)
                     context.append(prop_turn)
-                    logger.info(f"✅ 正方 Round {r} 完成，内容长度: {len(prop_turn.content)}")
+                    logger.info(f"正方 Round {r} 完成，内容长度: {len(prop_turn.content)}")
                     yield event
                 else:
                     # 流式推送内容增量
                     yield event
         except Exception as e:
-            logger.error(f"❌ 正方发言失败: {e}", exc_info=True)
+            logger.error(f"正方发言失败: {e}", exc_info=True)
             yield {"type": "error", "content": f"正方发言出错: {str(e)}"}
-        
-        # 🛑 在轮次间也检查中止
-        if _active_matches.get(match.match_id, {}).get("should_stop", False):
-            logger.warning(f"⚠️ 比赛在轮次间被中止: {match.match_id}")
-            match.status = "CANCELLED"
-            await save_match(match)
-            yield {"type": "match_cancelled", "match_id": match.match_id, "message": "比赛已被用户中止"}
-            _active_matches.pop(match.match_id, None)
-            return
         
         # === 反方发言 (流式) ===
         yield {"type": "status", "speaker": "opponent", "content": f"Round {r}: 反方正在反驳..."}
@@ -173,33 +133,24 @@ async def run_tournament_match(
                 context=context,
                 is_opening=False,
                 enabled_tools=enabled_tools,  # 传递工具列表
-                match_id=match.match_id  # 传递match_id用于检查中止
+                match_id=match.match_id  # 传递match_id
             ):
-                # 🛑 在流式输出中也检查中止
-                if _active_matches.get(match.match_id, {}).get("should_stop", False):
-                    logger.warning(f"⚠️ 反方发言中被中止: {match.match_id}")
-                    match.status = "CANCELLED"
-                    await save_match(match)
-                    yield {"type": "match_cancelled", "match_id": match.match_id, "message": "比赛已被用户中止"}
-                    _active_matches.pop(match.match_id, None)
-                    return
-                
                 if event["type"] == "turn_complete":
                     # turn_complete 事件中的 turn 是 dict，需要转换回 Turn 对象
                     turn_dict = event["turn"]
                     opp_turn = Turn(**turn_dict)
                     match.history.append(opp_turn)
                     context.append(opp_turn)
-                    logger.info(f"✅ 反方 Round {r} 完成，内容长度: {len(opp_turn.content)}")
+                    logger.info(f"反方 Round {r} 完成，内容长度: {len(opp_turn.content)}")
                     yield event
                 else:
                     yield event
         except Exception as e:
-            logger.error(f"❌ 反方发言失败: {e}", exc_info=True)
+            logger.error(f"反方发言失败: {e}", exc_info=True)
             yield {"type": "error", "content": f"反方发言出错: {str(e)}"}
     
     # === 裁判判决 ===
-    logger.info("👨‍⚖️ 开始裁判判决")
+    logger.info("开始裁判判决")
     match.status = "JUDGING"
     await update_match_status(match.match_id, "JUDGING")
     
@@ -212,16 +163,16 @@ async def run_tournament_match(
                 result_dict = event["result"]
                 from .models import MatchResult
                 match.result = MatchResult(**result_dict)
-                logger.info(f"⚖️ 裁判判决完成，胜者: {match.result.winner}")
+                logger.info(f"裁判判决完成，胜者: {match.result.winner}")
             yield event
     except Exception as e:
-        logger.error(f"❌ 裁判打分失败: {e}", exc_info=True)
+        logger.error(f"裁判打分失败: {e}", exc_info=True)
         yield {"type": "error", "content": f"裁判打分出错: {str(e)}"}
     
     # === 更新 ELO ===
     elo_changes = None
     if not same_model_battle:
-        logger.info("📊 准备更新 ELO 排名")
+        logger.info("准备更新 ELO 排名")
         try:
             # 确保 result 存在才更新 ELO
             if match.result is not None:
@@ -230,19 +181,19 @@ async def run_tournament_match(
                 # 检查是否跳过了 ELO 更新
                 if elo_changes.get('proponent', {}).get('skipped'):
                     skip_reason = elo_changes['proponent'].get('reason', '未知原因')
-                    logger.warning(f"⚠️ ELO 更新被跳过: {skip_reason}")
+                    logger.warning(f"ELO 更新被跳过: {skip_reason}")
                     yield {"type": "elo_update", "data": {"message": f"跳过ELO更新: {skip_reason}", "skip": True}}
                 else:
-                    logger.info(f"✅ ELO 更新完成: 正方 {elo_changes['proponent']['change']:+d}, 反方 {elo_changes['opponent']['change']:+d}")
+                    logger.info(f"ELO 更新完成: 正方 {elo_changes['proponent']['change']:+d}, 反方 {elo_changes['opponent']['change']:+d}")
                     yield {"type": "elo_update", "data": elo_changes}
             else:
-                logger.warning("⚠️ 比赛结果为空，跳过 ELO 更新")
+                logger.warning("比赛结果为空，跳过 ELO 更新")
                 yield {"type": "elo_update", "data": {"error": "比赛结果为空", "skip": True}}
         except Exception as e:
-            logger.error(f"❌ ELO 更新失败: {type(e).__name__} - {e}", exc_info=True)
+            logger.error(f"ELO 更新失败: {type(e).__name__} - {e}", exc_info=True)
             yield {"type": "elo_update", "data": {"error": f"ELO更新失败: {str(e)}", "skip": True}}
     else:
-        logger.info("⚠️ 同模型对战，跳过 ELO 更新")
+        logger.info("同模型对战，跳过 ELO 更新")
         yield {"type": "elo_update", "data": {"message": "同模型对战，不计ELO", "skip": True}}
     
     # === 保存比赛 ===
@@ -253,38 +204,9 @@ async def run_tournament_match(
     if elo_changes:
         await update_match_status(match.match_id, "FINISHED", elo_changes)
     
-    logger.info(f"🏁 比赛结束: {match.match_id}")
-    
-    # 清理活跃比赛记录
-    _active_matches.pop(match.match_id, None)
+    logger.info(f"比赛结束: {match.match_id}")
     
     yield {"type": "match_end", "match_id": match.match_id}
-
-
-def cancel_match(match_id: str) -> bool:
-    """
-    中止正在进行的比赛
-    
-    Args:
-        match_id: 比赛ID
-    
-    Returns:
-        bool: 是否成功设置中止标志
-    """
-    logger.info(f"🔍 当前活跃比赛列表: {list(_active_matches.keys())}")
-    
-    if match_id in _active_matches:
-        _active_matches[match_id]["should_stop"] = True
-        logger.info(f"🛑 比赛中止标志已设置: {match_id}")
-        return True
-    else:
-        logger.warning(f"⚠️ 尝试中止不存在的比赛: {match_id}")
-        return False
-
-
-def get_active_matches() -> List[str]:
-    """获取所有活跃比赛的ID列表"""
-    return list(_active_matches.keys())
 
 
 async def execute_turn_stream(
@@ -308,7 +230,7 @@ async def execute_turn_stream(
         {"type": "turn_complete", "turn": Turn(...)}
     """
     
-    logger.info(f"💬 {role} Round {round_num} 开始思考 (模型: {model_id}, 性格: {personality})")
+    logger.info(f"{role} Round {round_num} 开始思考 (模型: {model_id}, 性格: {personality})")
     
     # 构建系统提示词，传递 enabled_tools
     system_prompt = build_debate_prompt(
@@ -375,7 +297,7 @@ async def execute_turn_stream(
         elif event["type"] == "tool_call":
             # 工具调用
             accumulated_tool_calls.append(event["tool_call"])
-            logger.info(f"🔧 {role} 调用工具: {event['tool_call']['function']['name']}")
+            logger.info(f"{role} 调用工具: {event['tool_call']['function']['name']}")
             yield {
                 "type": "turn_tool_call",
                 "speaker": role,
@@ -385,11 +307,11 @@ async def execute_turn_stream(
             
         elif event["type"] == "done":
             # 完成第一次调用
-            logger.debug(f"💬 {role} 第一次调用完成")
+            logger.debug(f"{role} 第一次调用完成")
             break
             
         elif event["type"] == "error":
-            logger.error(f"❌ {role} 调用失败: {event['error']}")
+            logger.error(f"{role} 调用失败: {event['error']}")
             yield {
                 "type": "error",
                 "content": f"{role} 调用失败: {event['error']}"
@@ -399,7 +321,7 @@ async def execute_turn_stream(
     # 处理工具调用
     tool_calls = []
     if accumulated_tool_calls:
-        logger.info(f"🔧 开始执行 {len(accumulated_tool_calls)} 个工具")
+        logger.info(f"开始执行 {len(accumulated_tool_calls)} 个工具")
         
         # 将第一次的助手回复加入消息历史
         assistant_message = {
@@ -412,7 +334,7 @@ async def execute_turn_stream(
         # 执行工具并将结果加入消息历史
         for tc in accumulated_tool_calls:
             try:
-                logger.debug(f"   执行工具: {tc['function']['name']}")
+                logger.debug(f"执行工具: {tc['function']['name']}")
                 result = await execute_tool(tc)
                 
                 # 格式化工具结果
@@ -426,7 +348,7 @@ async def execute_turn_stream(
                     "arguments": tc['function']['arguments'],
                     "result": result
                 })
-                logger.info(f"   ✅ 工具执行成功: {tc['function']['name']}")
+                logger.info(f"工具执行成功: {tc['function']['name']}")
                 
                 # 推送工具执行结果
                 yield {
@@ -446,7 +368,7 @@ async def execute_turn_stream(
                 messages.append(tool_result_message)
                 
             except Exception as e:
-                logger.error(f"   ❌ 工具执行失败: {tc['function']['name']}, 错误: {e}")
+                logger.error(f"工具执行失败: {tc['function']['name']}, 错误: {e}")
                 error_msg = f"工具执行失败: {str(e)}"
                 tool_calls.append({
                     "tool_name": tc['function']['name'],
@@ -462,7 +384,7 @@ async def execute_turn_stream(
                 })
         
         # 第二次调用 LLM，让模型基于工具结果生成最终回答
-        logger.info(f"🔄 {role} 基于工具结果进行第二次调用")
+        logger.info(f"{role} 基于工具结果进行第二次调用")
         
         final_content = ""
         async for event in query_model_stream(
@@ -482,11 +404,11 @@ async def execute_turn_stream(
                 }
                 
             elif event["type"] == "done":
-                logger.debug(f"💬 {role} 第二次调用完成 (基于工具结果)")
+                logger.debug(f"{role} 第二次调用完成 (基于工具结果)")
                 break
                 
             elif event["type"] == "error":
-                logger.error(f"❌ {role} 第二次调用失败: {event['error']}")
+                logger.error(f"{role} 第二次调用失败: {event['error']}")
                 yield {
                     "type": "error",
                     "content": f"{role} 第二次调用失败: {event['error']}"
@@ -509,13 +431,14 @@ async def execute_turn_stream(
         timestamp=datetime.utcnow()
     )
     
-    logger.info(f"✅ {role} Round {round_num} 完成，内容: {len(accumulated_content)} 字符，工具: {len(tool_calls)} 个")
+    logger.info(f"{role} Round {round_num} 完成，内容: {len(accumulated_content)} 字符，工具: {len(tool_calls)} 个")
     
     # 推送完成事件 (将 Turn 对象转换为字典)
     yield {
         "type": "turn_complete",
         "turn": turn.model_dump(mode='json')
     }
+
 
 
 def build_debate_prompt(
