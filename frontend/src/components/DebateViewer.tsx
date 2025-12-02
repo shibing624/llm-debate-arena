@@ -251,18 +251,7 @@ export default function DebateViewer({ messages, proponentModel, opponentModel }
                 ${isProponent ? 'col-start-1' : 'col-start-2'}
                 p-4 rounded-lg bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow
                 ${isProponent ? 'border-l-2 border-l-black' : 'border-r-2 border-r-black'}
-                ${canCollapse ? 'cursor-pointer' : ''}
               `}
-              onClick={() => canCollapse && toggleCollapse(turnKey)}
-              role={canCollapse ? 'button' : undefined}
-              tabIndex={canCollapse ? 0 : undefined}
-              onKeyDown={(e) => {
-                if (canCollapse && (e.key === 'Enter' || e.key === ' ')) {
-                  e.preventDefault()
-                  toggleCollapse(turnKey)
-                }
-              }}
-              aria-expanded={canCollapse ? !isCollapsed : undefined}
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center space-x-2">
@@ -288,13 +277,20 @@ export default function DebateViewer({ messages, proponentModel, opponentModel }
                   )}
                 </div>
                 {canCollapse && (
-                  <motion.div
-                    initial={false}
-                    animate={{ rotate: isCollapsed ? 0 : 180 }}
-                    transition={{ duration: 0.2 }}
+                  <button
+                    onClick={() => toggleCollapse(turnKey)}
+                    className="p-1 hover:bg-gray-100 rounded transition-colors"
+                    aria-label={isCollapsed ? '展开' : '折叠'}
+                    title={isCollapsed ? '展开完整内容' : '折叠内容'}
                   >
-                    <ChevronDown className="w-4 h-4 text-gray-400" aria-hidden="true" />
-                  </motion.div>
+                    <motion.div
+                      initial={false}
+                      animate={{ rotate: isCollapsed ? 0 : 180 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                    </motion.div>
+                  </button>
                 )}
               </div>
 
@@ -411,7 +407,7 @@ export default function DebateViewer({ messages, proponentModel, opponentModel }
               {/* 折叠提示 */}
               {canCollapse && isCollapsed && (
                 <div className="mt-2 text-xs text-gray-400 text-center select-none">
-                  点击展开查看完整内容
+                  点击右上角箭头展开完整内容
                 </div>
               )}
 
