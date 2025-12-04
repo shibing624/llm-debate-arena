@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Play, Loader2, Plus, LogIn, LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Play, Loader2, Plus, LogIn, LogOut, ChevronLeft, ChevronRight, Check, MoreVertical, Share2, Edit2, Trash2 } from 'lucide-react'
 import { useSSE } from '../hooks/useSSE'
 import { useToast } from '../hooks/useToast'
 import { ToastContainer } from '../components/Toast'
@@ -65,10 +65,14 @@ export default function ArenaNew() {
   const [loginEmail, setLoginEmail] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
   const [loginLoading, setLoginLoading] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [menuOpen, setMenuOpen] = useState<string | null>(null)
+  const [renameModal, setRenameModal] = useState<{ matchId: string; currentTitle: string } | null>(null)
+  const [newTitle, setNewTitle] = useState('')
   
   const navigate = useNavigate()
   const { toasts, toast, removeToast } = useToast()
-  const { messages, connect, clearMessages, loadMessages } = useSSE()
+  const { messages, currentMatchId, connect, clearMessages, loadMessages } = useSSE()
 
   // 切换裁判选择
   const toggleJudge = (judgeModel: string) => {
@@ -195,6 +199,13 @@ export default function ArenaNew() {
     }
   }, [user])
 
+  // 点击外部关闭菜单
+  useEffect(() => {
+    const handleClickOutside = () => setMenuOpen(null)
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [])
+
   // 登录处理
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -296,6 +307,10 @@ export default function ArenaNew() {
   // 🔧 简化：加载历史记录的比赛（直接切换到该比赛，断开当前 SSE）
   const loadHistoryMatch = async (matchId: string) => {
     try {
+      // 🔧 先断开当前 SSE 连接，停止流式输出
+      clearMessages()
+      setIsStarting(false) // 停止当前比赛状态
+      
       const apiUrl = getApiUrl(`/api/tournament/match/${matchId}`)
       const response = await fetch(apiUrl)
       if (!response.ok) {
@@ -303,10 +318,6 @@ export default function ArenaNew() {
       }
       
       const data = await response.json()
-      
-      // 🔧 清空当前消息并断开 SSE（如果有的话）
-      clearMessages()
-      setIsStarting(false) // 停止当前比赛状态
       
       // 转换为消息格式
       const historyMsgs: any[] = []
@@ -337,11 +348,26 @@ export default function ArenaNew() {
         })
       }
       
-      // 🔧 等待状态更新完成
-      await new Promise(resolve => setTimeout(resolve, 0))
+      // 根据比赛状态添加不同的标记
+      if (data.status === 'FINISHED') {
+        // 已完成的比赛，添加结束标记（用于显示分享按钮）
+        historyMsgs.push({
+          type: 'match_end',
+          match_id: matchId
+        })
+      } else if (data.status === 'FIGHTING' || data.status === 'JUDGING') {
+        // 进行中的比赛，添加进行中标记
+        historyMsgs.push({
+          type: 'match_in_progress',
+          match_id: matchId,
+          status: data.status
+        })
+        // 设置为进行中状态
+        setIsStarting(true)
+      }
       
-      // 🔧 加载历史消息到当前视图（复用 messages）
-      loadMessages(historyMsgs)
+      // 🔧 加载历史消息，并传递 matchId（用于分享功能）
+      loadMessages(historyMsgs, matchId)
       
       // 更新显示信息
       setTopic(data.topic || '')
@@ -351,6 +377,81 @@ export default function ArenaNew() {
       console.error('加载历史记录失败:', error)
       toast.error('加载历史记录失败')
     }
+  }
+
+  // 删除历史记录
+  const handleDeleteMatch = async (matchId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setMenuOpen(null)
+    
+    if (!confirm('确定要删除这场比赛记录吗？')) return
+    
+    try {
+      const apiUrl = getApiUrl(`/api/tournament/match/${matchId}`)
+      const response = await fetch(apiUrl, { method: 'DELETE' })
+      if (response.ok) {
+        setHistoryMatches(prev => prev.filter(m => m.match_id !== matchId))
+        toast.success('删除成功')
+      } else {
+        toast.error('删除失败')
+      }
+    } catch (error) {
+      console.error('删除失败:', error)
+      toast.error('删除失败')
+    }
+  }
+
+  // 打开重命名弹窗
+  const openRenameModal = (match: Match, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setMenuOpen(null)
+    setRenameModal({
+      matchId: match.match_id,
+      currentTitle: match.topic
+    })
+    setNewTitle(match.topic)
+  }
+
+  // 重命名比赛
+  const handleRename = async () => {
+    if (!renameModal || !newTitle.trim()) return
+    
+    try {
+      const apiUrl = getApiUrl(`/api/tournament/match/${renameModal.matchId}/rename`)
+      const response = await fetch(apiUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newTitle.trim() })
+      })
+      
+      if (response.ok) {
+        setHistoryMatches(prev => prev.map(m => 
+          m.match_id === renameModal.matchId 
+            ? { ...m, topic: newTitle.trim() }
+            : m
+        ))
+        setRenameModal(null)
+        toast.success('重命名成功')
+      } else {
+        toast.error('重命名失败')
+      }
+    } catch (error) {
+      console.error('重命名失败:', error)
+      toast.error('重命名失败')
+    }
+  }
+
+  // 分享 - 复制链接
+  const handleShareMatch = (matchId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setMenuOpen(null)
+    
+    const shareUrl = `${window.location.origin}/match/${matchId}`
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+      toast.success('链接已复制')
+    })
   }
 
   return (
@@ -442,12 +543,12 @@ export default function ArenaNew() {
             {user ? (
               historyMatches.length > 0 ? (
                 historyMatches.map((match) => (
-                  <button
+                  <div
                     key={match.match_id}
+                    className="relative group w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded border border-gray-200 transition cursor-pointer"
                     onClick={() => loadHistoryMatch(match.match_id)}
-                    className="w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded border border-gray-200 transition"
                   >
-                    <div className="text-xs font-medium text-gray-900 line-clamp-2 mb-1">
+                    <div className="text-xs font-medium text-gray-900 line-clamp-2 mb-1 pr-6">
                       {match.topic}
                     </div>
                     <div className="text-xs text-gray-500 flex items-center justify-between">
@@ -456,7 +557,50 @@ export default function ArenaNew() {
                     <div className="text-xs text-gray-400 mt-1">
                       {new Date(match.created_at).toLocaleDateString('zh-CN')}
                     </div>
-                  </button>
+                    
+                    {/* 三点菜单按钮 */}
+                    <div className="absolute top-2 right-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setMenuOpen(menuOpen === match.match_id ? null : match.match_id)
+                        }}
+                        className="p-1 hover:bg-gray-200 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <MoreVertical className="w-4 h-4 text-gray-500" />
+                      </button>
+                      
+                      {/* 下拉菜单 */}
+                      {menuOpen === match.match_id && (
+                        <div 
+                          className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 min-w-[100px]"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            onClick={(e) => handleShareMatch(match.match_id, e)}
+                            className="w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50 flex items-center space-x-2"
+                          >
+                            <Share2 className="w-3 h-3" />
+                            <span>分享</span>
+                          </button>
+                          <button
+                            onClick={(e) => openRenameModal(match, e)}
+                            className="w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50 flex items-center space-x-2"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                            <span>重命名</span>
+                          </button>
+                          <button
+                            onClick={(e) => handleDeleteMatch(match.match_id, e)}
+                            className="w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50 text-red-600 flex items-center space-x-2"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span>删除</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 ))
               ) : (
                 <div className="text-center text-gray-400 text-xs py-8">
@@ -532,15 +676,53 @@ export default function ArenaNew() {
         <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
           <h1 className="text-lg font-semibold text-gray-900">辩论竞技场</h1>
           
-          {/* 天梯榜入口 */}
-          <a
-            href="/leaderboard"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-3 py-1.5 bg-gray-900 text-white rounded hover:bg-gray-800 transition text-sm inline-block"
-          >
-            天梯榜
-          </a>
+          <div className="flex items-center space-x-3">
+            {/* 分享按钮 - 辩论完成后显示 */}
+            {messages.some(m => m.type === 'match_end') && currentMatchId && (
+              <button
+                onClick={() => {
+                  const shareUrl = `${window.location.origin}/match/${currentMatchId}`
+                  navigator.clipboard.writeText(shareUrl).then(() => {
+                    setCopied(true)
+                    setTimeout(() => setCopied(false), 2000)
+                    toast.success('链接已复制，可分享给朋友')
+                  })
+                }}
+                className="flex items-center space-x-1 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded transition text-sm"
+                title="分享辩论"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-4 h-4 text-green-600" />
+                    <span className="text-green-600">已复制</span>
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="w-4 h-4 text-gray-600" />
+                    <span>分享</span>
+                  </>
+                )}
+              </button>
+            )}
+            
+            {/* 比赛进行中提示 */}
+            {messages.some(m => m.type === 'match_in_progress') && (
+              <span className="flex items-center space-x-1 px-3 py-1.5 bg-yellow-50 text-yellow-700 rounded text-sm border border-yellow-200">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>比赛进行中</span>
+              </span>
+            )}
+            
+            {/* 天梯榜入口 */}
+            <a
+              href="/leaderboard"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 bg-gray-900 text-white rounded hover:bg-gray-800 transition text-sm inline-block"
+            >
+              天梯榜
+            </a>
+          </div>
         </div>
 
         {/* 内容区 */}
@@ -729,6 +911,46 @@ export default function ArenaNew() {
           </div>
         </div>
       </main>
+
+      {/* 重命名弹窗 */}
+      {renameModal && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={() => setRenameModal(null)}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold mb-4">重命名</h3>
+            <input
+              type="text"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 mb-4"
+              placeholder="输入新标题"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleRename()
+              }}
+            />
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setRenameModal(null)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleRename}
+                className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition"
+              >
+                确定
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -392,6 +392,44 @@ async def get_match(match_id: str) -> Optional[MatchModel]:
         db.close()
 
 
+async def delete_match(match_id: str, user_id: int = None) -> bool:
+    """删除比赛记录"""
+    db = SessionLocal()
+    try:
+        query = db.query(MatchModel).filter(MatchModel.match_id == match_id)
+        # 如果提供了 user_id，验证所有权
+        if user_id:
+            query = query.filter(MatchModel.user_id == user_id)
+        
+        match = query.first()
+        if match:
+            db.delete(match)
+            db.commit()
+            return True
+        return False
+    finally:
+        db.close()
+
+
+async def rename_match(match_id: str, title: str, user_id: int = None) -> bool:
+    """重命名比赛"""
+    db = SessionLocal()
+    try:
+        query = db.query(MatchModel).filter(MatchModel.match_id == match_id)
+        # 如果提供了 user_id，验证所有权
+        if user_id:
+            query = query.filter(MatchModel.user_id == user_id)
+        
+        match = query.first()
+        if match:
+            match.custom_title = title
+            db.commit()
+            return True
+        return False
+    finally:
+        db.close()
+
+
 async def get_match_history(limit: int = 20, model_id: str = None, user_id: int = None) -> List[MatchModel]:
     """获取历史比赛（支持按模型和用户筛选）"""
     db = SessionLocal()

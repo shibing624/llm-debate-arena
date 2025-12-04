@@ -227,3 +227,5 @@ debate_arena.db*
 
 .DS_Store
 frontend/dist.zip
+.vscode
+.vscode/

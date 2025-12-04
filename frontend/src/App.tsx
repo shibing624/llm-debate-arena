@@ -1,7 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 import Arena from './pages/Arena'
 import Leaderboard from './pages/Leaderboard'
-import MatchHistory from './pages/MatchHistory'
+import MatchShare from './pages/MatchShare'
 import Login from './pages/Login'
 import Register from './pages/Register'
 
@@ -12,7 +12,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Arena />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
-        <Route path="/history" element={<MatchHistory />} />
+        <Route path="/match/:matchId" element={<MatchShare />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
       </Routes>

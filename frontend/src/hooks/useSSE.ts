@@ -111,22 +111,46 @@ export function useSSE() {
       })
   }, [])
 
-  const clearMessages = useCallback(() => {
-    console.log('🗑️ 清空消息')
-    setMessages([])
-    setCurrentMatchId(null)
+  // 断开当前 SSE 连接
+  const disconnect = useCallback(() => {
+    if (readerRef.current) {
+      console.log('🔌 断开 SSE 连接')
+      try {
+        readerRef.current.cancel()
+      } catch (error) {
+        console.error('断开连接失败:', error)
+      }
+      readerRef.current = null
+    }
+    setIsConnected(false)
   }, [])
 
-  const loadMessages = useCallback((historyMessages: SSEMessage[]) => {
+  const clearMessages = useCallback(() => {
+    console.log('🗑️ 清空消息')
+    // 先断开连接，再清空消息
+    disconnect()
+    setMessages([])
+    setCurrentMatchId(null)
+  }, [disconnect])
+
+  const loadMessages = useCallback((historyMessages: SSEMessage[], matchId?: string) => {
     console.log('📥 加载历史消息:', historyMessages.length, '条')
+    // 先断开当前 SSE 连接，停止流式输出
+    disconnect()
+    // 设置历史消息
     setMessages(historyMessages)
-  }, [])
+    // 设置历史比赛的 matchId（用于分享功能）
+    if (matchId) {
+      setCurrentMatchId(matchId)
+    }
+  }, [disconnect])
 
   return {
     messages,
     isConnected,
     currentMatchId,
     connect,
+    disconnect,
     clearMessages,
     loadMessages,
   }

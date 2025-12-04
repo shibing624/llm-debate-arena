@@ -17,10 +17,11 @@ sys.path.append(".")
 sys.path.append("..")
 
 from backend.log import logger
-from backend.models import MatchRequest, CompetitorProfile, DebateTopic, UserRegister, UserLogin, UserProfile, UserModel
+from backend.models import MatchRequest, MatchRenameRequest, CompetitorProfile, DebateTopic, UserRegister, UserLogin, UserProfile, UserModel
 from backend.database import (
     init_db, get_db, get_all_competitors, get_all_topics,
-    get_match, get_match_history, get_model_statistics
+    get_match, get_match_history, get_model_statistics,
+    delete_match, rename_match
 )
 from backend.tournament import run_tournament_match
 from backend.auth import hash_password, verify_password, create_access_token, decode_access_token
@@ -143,7 +144,7 @@ async def match_stream_sse(request: MatchRequest):
 @app.get("/api/tournament/match/{match_id}")
 async def get_match_detail(match_id: str):
     """
-    获取比赛详情
+    获取比赛详情（公开接口，用于分享）
     """
     logger.info(f"📖 查询比赛详情: {match_id}")
     
@@ -157,6 +158,7 @@ async def get_match_detail(match_id: str):
     return {
         "match_id": match.match_id,
         "topic": match.topic,
+        "custom_title": match.custom_title,
         "topic_difficulty": match.topic_difficulty,
         "proponent_model_id": match.proponent_model_id,
         "opponent_model_id": match.opponent_model_id,
@@ -167,6 +169,38 @@ async def get_match_detail(match_id: str):
         "created_at": match.created_at.isoformat(),
         "finished_at": match.finished_at.isoformat() if match.finished_at else None
     }
+
+
+@app.delete("/api/tournament/match/{match_id}")
+async def delete_match_api(match_id: str, user_id: int = None):
+    """
+    删除比赛记录
+    """
+    logger.info(f"🗑️ 删除比赛: {match_id}, user_id={user_id}")
+    
+    success = await delete_match(match_id, user_id)
+    if not success:
+        logger.warning(f"❌ 删除失败，比赛不存在或无权限: {match_id}")
+        raise HTTPException(status_code=404, detail="比赛不存在或无权限删除")
+    
+    logger.info(f"✅ 比赛已删除: {match_id}")
+    return {"message": "删除成功"}
+
+
+@app.put("/api/tournament/match/{match_id}/rename")
+async def rename_match_api(match_id: str, request: MatchRenameRequest, user_id: int = None):
+    """
+    重命名比赛
+    """
+    logger.info(f"✏️ 重命名比赛: {match_id} -> {request.title}")
+    
+    success = await rename_match(match_id, request.title, user_id)
+    if not success:
+        logger.warning(f"❌ 重命名失败，比赛不存在或无权限: {match_id}")
+        raise HTTPException(status_code=404, detail="比赛不存在或无权限重命名")
+    
+    logger.info(f"✅ 比赛已重命名: {match_id}")
+    return {"message": "重命名成功"}
 
 
 # ========== 排行榜 ==========
@@ -222,6 +256,7 @@ async def get_history(limit: int = 20, model_id: str = None, user_id: int = None
             {
                 "match_id": m.match_id,
                 "topic": m.topic,
+                "custom_title": m.custom_title,
                 "proponent_model_id": m.proponent_model_id,
                 "opponent_model_id": m.opponent_model_id,
                 "status": m.status,
@@ -352,7 +387,6 @@ async def get_current_user(token: str, db: Session = Depends(get_db)):
     """获取当前用户信息"""
     logger.info(f"👤 获取用户信息")
     
-    # 解码token
     payload = decode_access_token(token)
     if not payload:
         logger.warning("❌ Token无效")

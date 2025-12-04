@@ -116,6 +116,9 @@ class MatchModel(Base):
     # 用户关联
     user_id = Column(Integer, nullable=True)  # 可选，未登录用户为 None
     
+    # 自定义标题（用于重命名）
+    custom_title = Column(String(200), nullable=True)
+    
     topic = Column(String(500), nullable=False)
     topic_difficulty = Column(Enum(DifficultyLevel))
     rounds_setting = Column(Integer, default=3)
@@ -230,6 +233,11 @@ class MatchRequest(BaseModel):
     judges: List[str] = Field(default_factory=lambda: ["gpt-4o", "gpt-4o-mini"])
     enabled_tools: List[str] = Field(default_factory=list)  # 默认为空列表，不启用任何工具
     user_id: Optional[int] = None  # 用户ID（可选）
+
+
+class MatchRenameRequest(BaseModel):
+    """重命名比赛请求"""
+    title: str
 
 
 # ========== 用户相关模型 ==========
