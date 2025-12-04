@@ -109,6 +109,9 @@ uvicorn backend.main:app --reload --port 8000 --host 0.0.0.0
 uvicorn backend.main:app --port 8000 --host 0.0.0.0 --loop uvloop
 
 # Note: Don't use --workers parameter as SSE long connections require shared state
+
+# 生产环境：使用 gunicorn 启动（推荐）
+nohup gunicorn backend.main:app -w 1 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000 --timeout 1000 > app.log 2>&1 &
 ```
 
 Backend service runs at `http://localhost:8000`

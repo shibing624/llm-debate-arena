@@ -19,34 +19,57 @@ from .models import (
     MatchSession, CompetitorProfile, DebateTopic
 )
 
-# SQLite 数据库（启用 WAL 模式以支持更好的并发）
-engine = create_engine(
-    DATABASE_URL, 
-    connect_args={
-        "check_same_thread": False,
-        "timeout": 30  # 增加超时时间，避免 database locked
-    },
-    pool_size=10,  # 连接池大小
-    max_overflow=20,  # 最大溢出连接数
-    pool_pre_ping=True  # 连接前检查可用性
-)
+
+def _create_engine():
+    """根据数据库类型创建引擎"""
+    is_sqlite = DATABASE_URL.startswith("sqlite")
+    
+    if is_sqlite:
+        # SQLite 配置（启用 WAL 模式以支持更好的并发）
+        return create_engine(
+            DATABASE_URL, 
+            connect_args={
+                "check_same_thread": False,
+                "timeout": 30  # 增加超时时间，避免 database locked
+            },
+            pool_size=10,
+            max_overflow=20,
+            pool_pre_ping=True
+        )
+    else:
+        # MySQL / PostgreSQL 配置
+        return create_engine(
+            DATABASE_URL,
+            pool_size=20,           # 连接池大小
+            max_overflow=30,        # 最大溢出连接数
+            pool_pre_ping=True,     # 连接前检查可用性
+            pool_recycle=3600,      # 连接回收时间（秒），避免 MySQL 8小时断连
+            echo=False              # 关闭 SQL 日志
+        )
+
+
+engine = _create_engine()
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db():
     """初始化数据库"""
     Base.metadata.create_all(bind=engine)
     
-    # 启用 WAL 模式以支持更好的并发
-    try:
-        import sqlite3
-        # 从 DATABASE_URL 中提取数据库文件路径
-        # DATABASE_URL 格式: sqlite:///./debate_arena.db
-        db_path = DATABASE_URL.replace('sqlite:///', '')
-        conn = sqlite3.connect(db_path)
-        conn.execute('PRAGMA journal_mode=WAL')
-        conn.close()
-    except Exception as e:
-        logger.error(f"启用 WAL 模式失败: {e}")
+    # SQLite 启用 WAL 模式以支持更好的并发
+    if DATABASE_URL.startswith("sqlite"):
+        try:
+            import sqlite3
+            # 从 DATABASE_URL 中提取数据库文件路径
+            # DATABASE_URL 格式: sqlite:///./debate_arena.db
+            db_path = DATABASE_URL.replace('sqlite:///', '')
+            conn = sqlite3.connect(db_path)
+            conn.execute('PRAGMA journal_mode=WAL')
+            conn.close()
+            logger.info("SQLite WAL 模式已启用")
+        except Exception as e:
+            logger.error(f"启用 WAL 模式失败: {e}")
+    else:
+        logger.info(f"使用数据库: {DATABASE_URL.split('@')[-1] if '@' in DATABASE_URL else DATABASE_URL}")
     
     # 初始化默认数据
     db = SessionLocal()

@@ -102,13 +102,13 @@ pip install -r requirements.txt
 # 配置环境变量（复制 .env.example 为 .env 并填写）
 cp ../.env.example ../.env
 
-# 开发环境：启动后端服务（推荐）
+# 开发环境：启动后端服务
 uvicorn backend.main:app --reload --port 8000 --host 0.0.0.0
 
-# 生产环境：启动后端服务
-uvicorn backend.main:app --port 8000 --host 0.0.0.0 --loop uvloop
+# 生产环境：使用 gunicorn 启动（推荐）
+nohup gunicorn backend.main:app -w 1 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000 --timeout 1000 > app.log 2>&1 &
 
-# 注意：不要使用 --workers 参数，因为 SSE 长连接需要状态共享
+# 注意：worker 数量建议设为 1，因为 SSE 长连接需要状态共享
 ```
 
 后端服务运行在 `http://localhost:8000`
@@ -174,11 +174,17 @@ OPENROUTER_API_URL=https://api.openai.com/v1
 AVAILABLE_MODELS=gpt-4o,gpt-4o-mini,claude-3.5-sonnet,gpt-5.1
 
 # 数据库配置
+# SQLite（默认，适合开发和小规模部署）
 DATABASE_URL=sqlite:///./debate_arena.db
+
+# MySQL（推荐生产环境）
+# DATABASE_URL=mysql+pymysql://user:password@host:3306/debate_arena?charset=utf8mb4
 
 # Serper API (搜索工具)
 SERPER_API_KEY=your_serper_api_key_here
 ```
+
+> 📚 如需迁移到 MySQL，请参考 [MySQL 迁移指南](docs/MYSQL_MIGRATION.md)
 
 ### 前端环境变量
 
