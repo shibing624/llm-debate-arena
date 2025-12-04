@@ -104,7 +104,7 @@ export default function ArenaNew() {
   const fetchHistory = async () => {
     try {
       // 如果用户已登录，添加 user_id 参数
-      const params = new URLSearchParams({ limit: '20' })
+      const params = new URLSearchParams({ limit: '50' })
       if (user?.id) {
         params.append('user_id', user.id.toString())
       }
@@ -168,7 +168,7 @@ export default function ArenaNew() {
     // 初始加载历史记录（不依赖 user 状态，直接读取 localStorage）
     const loadInitialHistory = async () => {
       try {
-        const params = new URLSearchParams({ limit: '20' })
+        const params = new URLSearchParams({ limit: '50' })
         
         // 从 localStorage 直接读取 user_id
         if (userData) {

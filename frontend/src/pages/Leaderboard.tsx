@@ -16,8 +16,13 @@ interface Competitor {
 }
 
 // 🔧 新增：模型统计数据（脱敏）
+interface RecentMatch {
+  result: 'W' | 'L' | 'D'
+  opponent: string  // 对手模型ID
+}
+
 interface ModelStats {
-  recent_form: ('W' | 'L' | 'D')[]  // 最近10场战绩
+  recent_form: RecentMatch[]  // 最近10场战绩含对手
   win_streak: number  // 当前连胜
   loss_streak: number  // 当前连败
   elo_trend: number  // ELO趋势（最近变化）
@@ -78,23 +83,25 @@ export default function Leaderboard() {
     }
   }
 
-  // 🔧 渲染战绩条（W/L/D）
-  const renderRecentForm = (form: ('W' | 'L' | 'D')[]) => {
+  // 🔧 渲染战绩条（W/L/D + 对手）
+  const renderRecentForm = (form: RecentMatch[]) => {
     return (
-      <div className="flex items-center space-x-1">
-        {form.map((result, idx) => (
+      <div className="flex flex-wrap items-center gap-1">
+        {form.map((match, idx) => (
           <div
             key={idx}
-            className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${
-              result === 'W'
-                ? 'bg-green-500 text-white'
-                : result === 'L'
-                ? 'bg-red-500 text-white'
-                : 'bg-gray-400 text-white'
+            className={`px-2 py-1 rounded flex items-center space-x-1 text-xs font-medium ${
+              match.result === 'W'
+                ? 'bg-green-100 text-green-700 border border-green-300'
+                : match.result === 'L'
+                ? 'bg-red-100 text-red-700 border border-red-300'
+                : 'bg-gray-100 text-gray-700 border border-gray-300'
             }`}
-            title={result === 'W' ? '胜' : result === 'L' ? '负' : '平'}
+            title={`${match.result === 'W' ? '胜' : match.result === 'L' ? '负' : '平'} vs ${match.opponent}`}
           >
-            {result}
+            <span className="font-bold">{match.result}</span>
+            <span className="text-[10px] opacity-75">vs</span>
+            <span className="truncate max-w-[60px]">{match.opponent}</span>
           </div>
         ))}
       </div>

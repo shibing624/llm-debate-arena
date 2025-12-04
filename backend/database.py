@@ -430,7 +430,7 @@ async def rename_match(match_id: str, title: str, user_id: int = None) -> bool:
         db.close()
 
 
-async def get_match_history(limit: int = 20, model_id: str = None, user_id: int = None) -> List[MatchModel]:
+async def get_match_history(limit: int = 50, model_id: str = None, user_id: int = None) -> List[MatchModel]:
     """获取历史比赛（支持按模型和用户筛选）"""
     db = SessionLocal()
     try:
@@ -458,7 +458,7 @@ async def get_model_statistics(model_id: str) -> dict:
     
     Returns:
         {
-            "recent_form": ["W", "L", "D", ...],  # 最近10场战绩
+            "recent_form": [{"result": "W", "opponent": "gpt-4o"}, ...],  # 最近10场战绩含对手
             "win_streak": 3,
             "loss_streak": 0,
             "elo_trend": +25,  # 最近5场ELO变化
@@ -477,16 +477,22 @@ async def get_model_statistics(model_id: str) -> dict:
             MatchModel.status == 'FINISHED'
         ).order_by(desc(MatchModel.finished_at)).limit(20).all()
         
-        # 计算最近战绩
+        # 计算最近战绩（包含对手信息）
         recent_form = []
         for match in matches[:10]:
             result = _get_match_result_for_model(match, model_id)
-            recent_form.append(result)
+            # 确定对手
+            if match.proponent_model_id == model_id:
+                opponent = match.opponent_model_id
+            else:
+                opponent = match.proponent_model_id
+            recent_form.append({"result": result, "opponent": opponent})
         
         # 计算连胜/连败
         win_streak = 0
         loss_streak = 0
-        for result in recent_form:
+        for item in recent_form:
+            result = item["result"]
             if result == 'W':
                 win_streak += 1
                 loss_streak = 0

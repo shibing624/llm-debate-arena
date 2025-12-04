@@ -242,7 +242,7 @@ async def get_topics():
 # ========== 历史记录 ==========
 
 @app.get("/api/tournament/matches/history")
-async def get_history(limit: int = 20, model_id: str = None, user_id: int = None, db: Session = Depends(get_db)):
+async def get_history(limit: int = 50, model_id: str = None, user_id: int = None, db: Session = Depends(get_db)):
     """
     获取历史记录（支持按模型和用户筛选）
     """
