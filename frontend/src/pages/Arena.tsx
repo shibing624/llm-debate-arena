@@ -72,7 +72,7 @@ export default function ArenaNew() {
   
   const navigate = useNavigate()
   const { toasts, toast, removeToast } = useToast()
-  const { messages, currentMatchId, connect, clearMessages, loadMessages } = useSSE()
+  const { messages, currentMatchId, isTimeout, connect, clearMessages, loadMessages } = useSSE()
 
   // 切换裁判选择
   const toggleJudge = (judgeModel: string) => {
@@ -295,10 +295,10 @@ export default function ArenaNew() {
     }, 500) // 稍微延迟，确保后端已创建记录
   }
 
-  // 监听比赛结束或错误
+  // 监听比赛结束、错误或超时
   useEffect(() => {
     const lastMessage = messages[messages.length - 1]
-    if (lastMessage?.type === 'match_end' || lastMessage?.type === 'error') {
+    if (lastMessage?.type === 'match_end' || lastMessage?.type === 'error' || lastMessage?.type === 'timeout') {
       setIsStarting(false)
       fetchHistory() // 刷新历史记录
     }
@@ -812,7 +812,6 @@ export default function ArenaNew() {
                         <option value={1}>1</option>
                         <option value={2}>2</option>
                         <option value={3}>3</option>
-                        <option value={5}>5</option>
                       </select>
                     </div>
 
@@ -906,6 +905,7 @@ export default function ArenaNew() {
                 messages={messages} 
                 proponentModel={propModel}
                 opponentModel={oppModel}
+                isTimeout={isTimeout}
               />
             )}
           </div>

@@ -13,6 +13,7 @@ interface Props {
   messages: Message[]
   proponentModel?: string
   opponentModel?: string
+  isTimeout?: boolean
 }
 
 interface StreamingTurn {
@@ -23,7 +24,7 @@ interface StreamingTurn {
   toolCalls: any[]
 }
 
-export default function DebateViewer({ messages, proponentModel, opponentModel }: Props) {
+export default function DebateViewer({ messages, proponentModel, opponentModel, isTimeout }: Props) {
   const [streamingTurns, setStreamingTurns] = useState<Map<string, StreamingTurn>>(new Map())
   const [completedTurns, setCompletedTurns] = useState<any[]>([])
   const [statusMessages, setStatusMessages] = useState<any[]>([])
@@ -438,6 +439,25 @@ export default function DebateViewer({ messages, proponentModel, opponentModel }
           )
         })}
       </div>
+
+      {/* 超时提示 */}
+      {isTimeout && !result && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-yellow-50 border border-yellow-300 rounded-lg p-4 mt-4"
+        >
+          <div className="flex items-center space-x-2">
+            <span className="text-yellow-600 text-lg">⏰</span>
+            <div>
+              <div className="font-medium text-yellow-800">比赛超时</div>
+              <div className="text-sm text-yellow-700">
+                比赛已超过15分钟限制，已显示当前已输出的辩论内容。
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* 比赛结果 */}
       {result && (

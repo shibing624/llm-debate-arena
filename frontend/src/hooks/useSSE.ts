@@ -5,15 +5,32 @@ interface SSEMessage {
   [key: string]: any
 }
 
+// 默认超时时间：15分钟
+const DEFAULT_TIMEOUT_MS = 15 * 60 * 1000
+
 export function useSSE() {
   const [messages, setMessages] = useState<SSEMessage[]>([])
   const [isConnected, setIsConnected] = useState(false)
   const [currentMatchId, setCurrentMatchId] = useState<string | null>(null)
+  const [isTimeout, setIsTimeout] = useState(false)
   const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const connect = useCallback((url: string, config: any) => {
+  // 清除超时定时器
+  const clearTimeoutTimer = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
+  }, [])
+
+  const connect = useCallback((url: string, config: any, timeoutMs: number = DEFAULT_TIMEOUT_MS) => {
     console.log('📡 正在连接 SSE:', url)
     console.log('📤 配置:', config)
+    console.log('⏱️ 超时设置:', timeoutMs / 1000 / 60, '分钟')
+
+    // 重置超时状态
+    setIsTimeout(false)
 
     // 🔧 如果已有连接，先关闭旧连接
     if (readerRef.current) {
@@ -25,6 +42,26 @@ export function useSSE() {
         console.error('关闭旧连接失败:', error)
       }
     }
+
+    // 清除旧的超时定时器
+    clearTimeoutTimer()
+
+    // 设置超时定时器
+    timeoutRef.current = setTimeout(() => {
+      console.log('⏰ 比赛超时，强制断开连接')
+      setIsTimeout(true)
+      if (readerRef.current) {
+        try {
+          readerRef.current.cancel()
+        } catch (error) {
+          console.error('超时断开连接失败:', error)
+        }
+        readerRef.current = null
+      }
+      setIsConnected(false)
+      // 添加超时消息
+      setMessages((prev) => [...prev, { type: 'timeout', content: '比赛超时，已显示当前已输出的内容' }])
+    }, timeoutMs)
 
     // 发起 POST 请求
     fetch(url, {
@@ -60,6 +97,7 @@ export function useSSE() {
           
           if (done) {
             console.log('🏁 SSE 流结束')
+            clearTimeoutTimer() // 正常结束，清除超时定时器
             setIsConnected(false)
             setCurrentMatchId(null)
             readerRef.current = null // 清空 reader 引用
@@ -91,6 +129,7 @@ export function useSSE() {
                     console.log('🆔 设置当前比赛ID (start):', message.data.match_id)
                   }
                 } else if (message.type === 'match_end') {
+                  clearTimeoutTimer() // 比赛正常结束，清除超时定时器
                   setCurrentMatchId(null)
                   console.log('🆔 清除当前比赛ID')
                 }
@@ -105,11 +144,12 @@ export function useSSE() {
       })
       .catch((error) => {
         console.error('❌ SSE 连接错误:', error)
+        clearTimeoutTimer()
         setIsConnected(false)
         setCurrentMatchId(null)
         readerRef.current = null
       })
-  }, [])
+  }, [clearTimeoutTimer])
 
   // 断开当前 SSE 连接
   const disconnect = useCallback(() => {
@@ -122,8 +162,9 @@ export function useSSE() {
       }
       readerRef.current = null
     }
+    clearTimeoutTimer()
     setIsConnected(false)
-  }, [])
+  }, [clearTimeoutTimer])
 
   const clearMessages = useCallback(() => {
     console.log('🗑️ 清空消息')
@@ -131,6 +172,7 @@ export function useSSE() {
     disconnect()
     setMessages([])
     setCurrentMatchId(null)
+    setIsTimeout(false)
   }, [disconnect])
 
   const loadMessages = useCallback((historyMessages: SSEMessage[], matchId?: string) => {
@@ -143,12 +185,14 @@ export function useSSE() {
     if (matchId) {
       setCurrentMatchId(matchId)
     }
+    setIsTimeout(false)
   }, [disconnect])
 
   return {
     messages,
     isConnected,
     currentMatchId,
+    isTimeout,
     connect,
     disconnect,
     clearMessages,

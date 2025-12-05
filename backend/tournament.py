@@ -4,7 +4,6 @@
 @description: Tournament Manager - 辩论赛事编排
 """
 
-import asyncio
 from typing import AsyncGenerator, List, Optional
 from datetime import datetime
 import json
@@ -18,6 +17,9 @@ from .elo import update_elo_ratings
 from .database import save_match, update_match_status
 from .utils import generate_id
 
+# 比赛超时时间（秒）：15分钟
+MATCH_TIMEOUT_SECONDS = 15 * 60
+
 
 async def run_tournament_match(
     topic: str,
@@ -30,7 +32,8 @@ async def run_tournament_match(
     judges: List[str] = None,
     enabled_tools: List[str] = None,
     same_model_battle: bool = False,
-    user_id: Optional[int] = None
+    user_id: Optional[int] = None,
+    timeout_seconds: int = MATCH_TIMEOUT_SECONDS
 ) -> AsyncGenerator[dict, None]:
     """
     运行竞技赛，使用 WebSocket 流式推送
@@ -57,7 +60,10 @@ async def run_tournament_match(
     
     logger.info(f"开始新比赛: {topic}")
     logger.info(f"正方: {prop_model_id} ({prop_personality_enum}) | 反方: {opp_model_id} ({opp_personality_enum})")
-    logger.info(f"轮次: {rounds} | 难度: {topic_difficulty} | 裁判: {judges} | 工具: {enabled_tools}")
+    logger.info(f"轮次: {rounds} | 难度: {topic_difficulty} | 裁判: {judges} | 工具: {enabled_tools} | 超时: {timeout_seconds}秒")
+    
+    # 记录比赛开始时间
+    match_start_time = datetime.utcnow()
     
     # 创建比赛会话
     match = MatchSession(
@@ -81,11 +87,24 @@ async def run_tournament_match(
     
     yield {"type": "match_start", "data": match.model_dump(mode='json')}
     
+    # 超时检查函数
+    def check_timeout() -> bool:
+        elapsed = (datetime.utcnow() - match_start_time).total_seconds()
+        return elapsed > timeout_seconds
+    
     # 辩论上下文
     context = []
+    is_timeout = False
     
     # === 正式辩论 ===
     for r in range(1, rounds + 1):
+        # 检查超时
+        if check_timeout():
+            logger.warning(f"比赛超时 (已超过 {timeout_seconds} 秒)，终止辩论")
+            is_timeout = True
+            yield {"type": "timeout", "content": f"比赛超时（超过{timeout_seconds // 60}分钟），已显示当前已输出的辩论内容"}
+            break
+        
         logger.info(f"开始 Round {r}")
         
         # === 正方发言 (流式) ===
@@ -119,6 +138,13 @@ async def run_tournament_match(
             logger.error(f"正方发言失败: {e}", exc_info=True)
             yield {"type": "error", "content": f"正方发言出错: {str(e)}"}
         
+        # 正方发言后检查超时
+        if check_timeout():
+            logger.warning(f"比赛超时 (已超过 {timeout_seconds} 秒)，终止辩论")
+            is_timeout = True
+            yield {"type": "timeout", "content": f"比赛超时（超过{timeout_seconds // 60}分钟），已显示当前已输出的辩论内容"}
+            break
+        
         # === 反方发言 (流式) ===
         yield {"type": "status", "speaker": "opponent", "content": f"Round {r}: 反方正在反驳..."}
         
@@ -149,7 +175,17 @@ async def run_tournament_match(
             logger.error(f"反方发言失败: {e}", exc_info=True)
             yield {"type": "error", "content": f"反方发言出错: {str(e)}"}
     
-    # === 裁判判决 ===
+    # === 裁判判决（仅在未超时时执行）===
+    elo_changes = None
+    if is_timeout:
+        logger.info("比赛超时，跳过裁判判决和ELO更新")
+        match.status = "TIMEOUT"
+        await save_match(match)
+        await update_match_status(match.match_id, "TIMEOUT")
+        yield {"type": "match_end", "match_id": match.match_id, "timeout": True}
+        return
+    
+    # 正常流程：裁判判决
     logger.info("开始裁判判决")
     match.status = "JUDGING"
     await update_match_status(match.match_id, "JUDGING")
@@ -170,7 +206,6 @@ async def run_tournament_match(
         yield {"type": "error", "content": f"裁判打分出错: {str(e)}"}
     
     # === 更新 ELO ===
-    elo_changes = None
     if not same_model_battle:
         logger.info("准备更新 ELO 排名")
         try:
